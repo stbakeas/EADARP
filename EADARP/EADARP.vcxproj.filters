@@ -42,10 +42,10 @@
     <ClCompile Include="Run.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Algorithms.cpp">
+    <ClCompile Include="CStation.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="CStation.cpp">
+    <ClCompile Include="Algorithms.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -78,6 +78,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="CStation.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Position.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

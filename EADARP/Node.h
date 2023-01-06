@@ -1,7 +1,7 @@
 #pragma once
 class Node {
 public:
-	enum class Type {DEPOT,ORIGIN,DESTINATION,CHARGING_STATION};
+	enum class Type {START_DEPOT,END_DEPOT,ORIGIN,DESTINATION,CHARGING_STATION};
 	int id;
 	Type type;
 	double x; //Longitude
@@ -20,6 +20,7 @@ public:
 	bool isOrigin();
 	bool isDestination();
 	bool isChargingStation();
-	bool isDepot();
+	bool isStartingDepot();
+	bool isEndingDepot();
 	~Node() {};
 };
