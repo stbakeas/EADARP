@@ -10,4 +10,5 @@ public:
 	~CStation() {};
 	double getChargedAmount(double stay_time);
 	double getRequiredTime(double current_amount, double desired_amount);
+	double cancer(double getit);
 };

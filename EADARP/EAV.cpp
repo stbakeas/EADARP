@@ -8,6 +8,6 @@ EAV::EAV(int id, int capacity, double battery, double start_time, double end_tim
 	this->battery_return_percentage=battery_return_percentage;
 }
 
-bool EAV::operator==(const EAV& a) {
+bool EAV::operator==(const EAV& a) const {
 	return this->id == a.id;
 }
