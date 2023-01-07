@@ -280,8 +280,6 @@ namespace algorithms {
 						min_pos = *st;
 					}
 				}
-
-				if (min_cost > 1) return empty_route;
 				CStation* cs = min_pos.charging_station;
 				if (cs != nullptr) current_solution.routes[min_pos.vehicle].insertNode(inst.nodes.at(cs->id - 1), min_pos.cs_pos + 1);
 				current_solution.routes[min_pos.vehicle].insertRequest(r, min_pos.origin_pos + 1, min_pos.dest_pos + 1);

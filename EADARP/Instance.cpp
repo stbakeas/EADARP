@@ -288,8 +288,8 @@ void Instance::loadFromFile(const std::string instance_file_name, int seed) {
         node3->earliest = 0;
         node3->latest = Horizon;
         node3->maximum_travel_time = DBL_MAX;
-        node3->recharge_rate = dischargeRate;
-        node3->recharge_cost = 0.08;
+        node3->recharge_rate = 1.485;
+        node3->recharge_cost = 0;
         nodes.push_back(node3);
         charging_stations.push_back(new CStation(2 * requests_num + 2 * vehicles_num + i, node3->recharge_rate, node3->recharge_cost));
     }

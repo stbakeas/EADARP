@@ -10,6 +10,7 @@
 class Route {
 public:
 	enum class ChargingPolicy{FULL,MINIMAL,CONSERVATIVE};
+	enum class Measure{Time,Distance,Battery};
 	bool batteryFeasible;
 	bool capacityFeasible;
 	ChargingPolicy policy;
@@ -53,8 +54,8 @@ public:
 	double getEarliestTime(int i); //Get the earliest time that node in position i in the route can be served
 	int getLoad(int i); //Get the load at position i
 	double getDuration(); //Get the route's total duration
-	double getAddedDistance(Node* node, int i,bool timeMode=false); //For a single node
-	double getAddedDistance(Request* request, int i, int j, bool timeMode = false); //For a request
+	double getAddedDistance(Node* node, int i,Measure measure=Measure::Distance); //For a single node
+	double getAddedDistance(Request* request, int i, int j, Measure measure = Measure::Distance); //For a request
 	double get_forward_time_slack(int i);
 	CStation* findBestChargingStationAfter(int i);
 
