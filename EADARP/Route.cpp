@@ -182,16 +182,13 @@ void Route::updateMetrics() {
     battery.clear();
     battery.resize(n);
     requests.clear();
-    for (auto cs : assigned_cs) { assigned_cs[cs.first] = false; charging_times[cs.first] = 0; }
     BasicScheduling();
     for (int i = 0; i < n; i++) {
         node_indices[path.at(i)] = i;
         computeLoad(i);
         computeBatteryLevel(i);
-        computeChargingTime(i);
         if (path[i]->isOrigin()) requests.push_back(inst.getRequest(path[i]));
     }
-    LazyScheduling();
     storeNaturalSequences();
     computeTotalCost();
 }
@@ -335,36 +332,51 @@ void Route::computeTotalCost() {
 }
 
 //Inserting node after position i
-double Route::getAddedDistance(Node* node, int i, bool timeMode) {
+double Route::getAddedDistance(Node* node, int i, Measure measure) {
     double dist = inst.getTravelTime(path.at(i), node)
         + inst.getTravelTime(node, path.at(i + 1))
         - inst.getTravelTime(path.at(i), path.at(i + 1));
 
-    if (timeMode) {
+    switch (measure) {
+    case Measure::Time: {
         double arrival_time = departure_times.at(i) + inst.getTravelTime(path.at(i), node);
         double waiting_time = std::max(0.0, node->earliest - arrival_time);
         dist += waiting_time + node->service_duration;
+        break;
     }
+    case Measure::Battery: {
+        dist *= inst.dischargeRate;
+        break;
+    }
+    }
+
     return dist;
 }
 //Inserting origin after i and destination after j.
-double Route::getAddedDistance(Request* request, int i, int j, bool timeMode) {
+double Route::getAddedDistance(Request* request, int i, int j, Measure measure) {
     if (i == j) {
         double dist = inst.getTravelTime(path.at(i), request->origin)
             + inst.getTravelTime(request->origin, request->destination)
             + inst.getTravelTime(request->destination, path.at(i + 1))
             - inst.getTravelTime(path.at(i), path.at(i + 1));
-        if (timeMode) {
+        switch (measure) {
+        case Measure::Time:
+        {
             double arrival_time_origin = departure_times.at(i) + inst.getTravelTime(path.at(i), request->origin);
             double waiting_time_origin = std::max(0.0, request->origin->earliest - arrival_time_origin);
             double arrival_time_dest = arrival_time_origin + waiting_time_origin + request->origin->service_duration +
                 inst.getTravelTime(request->origin, request->destination);
             double waiting_time_dest = std::max(0.0, request->destination->earliest - arrival_time_dest);
             dist += waiting_time_origin + waiting_time_dest + 2 * request->origin->service_duration;
+            break;
+        }
+        case Measure::Battery:
+            dist *= inst.dischargeRate;
+            break;
         }
         return dist;
     }
-    else return getAddedDistance(request->origin, i, timeMode) + getAddedDistance(request->destination, j, timeMode);
+    else return getAddedDistance(request->origin, i, measure) + getAddedDistance(request->destination, j, measure);
 }
 
 double Route::getDuration()
@@ -383,6 +395,7 @@ void Route::insertNode(Node* node, int index)
         else { 
             node_indices[node] = index;
             path.insert(path.begin() + index, node);
+            computeChargingTime(index);
         }
     }
    
@@ -414,8 +427,9 @@ void Route::computeChargingTime(int nodePosition) {
                 /* If maximum stay time has negative value,
                 * it means we can not add extra charging time without violating time constraints at
                 * subsequent nodes. */
-                double maximum_stay_time = FTS.at(nodePosition + 1)
-                    - inst.getTravelTime(path.at(nodePosition), path.at(nodePosition + 1));
+                double maximum_stay_time = FTS.at(nodePosition) - (inst.getTravelTime(path[nodePosition - 1], path[nodePosition])
+                    + inst.getTravelTime(path[nodePosition], path[nodePosition + 1])
+                    - inst.getTravelTime(path[nodePosition - 1], path[nodePosition + 1]));
 
                 extra_amount = round(s->getChargedAmount(maximum_stay_time));
                 desired_amount = fuel_needed + extra_amount;
@@ -428,7 +442,8 @@ void Route::computeChargingTime(int nodePosition) {
             }
             else desired_amount = std::min(fuel_needed, vehicle->battery);
         }
-        charging_times[s] = s->getRequiredTime(battery.at(nodePosition), desired_amount);
+        double arrival_battery = battery.at(nodePosition) - inst.getFuelConsumption(path[nodePosition - 1], path[nodePosition]);
+        charging_times[s] = s->getRequiredTime(arrival_battery, desired_amount);
     }
 }
 
@@ -500,8 +515,13 @@ Request* Route::selectRandomRequest(RandLib randlib) {
 void Route::removeNode(int index)
 {
     if (index > 0 && index < path.size() - 1) {
-        node_indices.erase(path.at(index));
-        path.erase(path.begin() + index); 
+        Node* node = path[index];
+        node_indices.erase(node);
+        path.erase(path.begin() + index);
+        if (node->isChargingStation()) {
+            assigned_cs[inst.getChargingStation(node)] = false;
+            charging_times[inst.getChargingStation(node)] = 0;
+        }
     }
 }
 
@@ -522,15 +542,15 @@ bool Route::isInsertionTimeFeasible(Request* request, int i, int j) {
             request->origin->service_duration + inst.getTravelTime(request->origin, request->destination) <=
             request->destination->latest
             &&
-            getAddedDistance(request,i,j,true)<= FTS.at(i + 1);
+            getAddedDistance(request,i,j,Measure::Time)<= FTS.at(i + 1);
 
     }
     else {
-        double origin_detour = getAddedDistance(request->origin, i, true);
+        double origin_detour = getAddedDistance(request->origin, i, Measure::Time);
         double new_dep_time = departure_times.at(j) + std::max(0.0,origin_detour-std::accumulate(waiting_times.begin() + i + 1, waiting_times.begin() + j, 0.0));
         return new_dep_time + inst.getTravelTime(path.at(j), request->destination) <= request->destination->latest &&
             origin_detour <= FTS.at(i + 1) &&
-            getAddedDistance(request,i,j,true) <= FTS.at(j + 1);
+            getAddedDistance(request,i,j,Measure::Time) <= FTS.at(j + 1);
     }
 }
 
@@ -545,6 +565,10 @@ bool Route::isInsertionCapacityFeasible(Request* request, int i, int j) {
     }
 }
 
+/*
+* Checks that the battery level at every node affected by the insertion is above 0.
+* Worst case running time: O(n), where *n* the number of nodes in the route.
+*/
 bool Route::isInsertionBatteryFeasible(Request* request, int i, int j) {
     if (j < i || i < 0 || j < 0 || i + 1 >= path.size() || j + 1 >= path.size()) return false;
     else if (i == j) {
@@ -574,27 +598,25 @@ bool Route::isInsertionBatteryFeasible(Request* request, int i, int j) {
     }
 }
 
+/*
+  Checks that the battery level at the assigned charging stations and the depot is above 0.
+  Worst case running time: O(|S|), where S the set of available charging stations. 
+*/
 bool Route::batteryFeasibilityTest(Request* request, int i, int j) {
     if (j < i || i < 0 || j < 0 || i + 1 >= path.size() || j + 1 >= path.size()) return false;
     else {
-        int closest_position = 0;
-        for (CStation* cs : inst.charging_stations) {
-            if (assigned_cs[cs]) {
-                int position = node_indices.at(inst.nodes.at(cs->id-1));
-                if (position > closest_position && position < i) closest_position = position;
-            }
-        }
-        if (closest_position == 0) {
-            int furthest_position = path.size()-1;
-            for (CStation* cs : inst.charging_stations) {
-                if (assigned_cs[cs]) {
-                    int position = node_indices.at(inst.nodes.at(cs->id - 1));
-                    if (position < closest_position && position > j) furthest_position = position;
+        double battery_after_insertion;
+        double added_battery_consumption = getAddedDistance(request, i, j, Measure::Battery);
+        for (auto pair : assigned_cs) {
+            if (pair.second) {
+                int index = node_indices[inst.nodes[pair.first->id - 1]];
+                if (index > j) {
+                    battery_after_insertion = battery[index] - added_battery_consumption;
+                    if (battery_after_insertion < 0.0) return false;
                 }
             }
-            return battery.at(furthest_position)- inst.dischargeRate * getAddedDistance(request, i, j) >= 0;
         }
-        CStation* station = inst.getChargingStation(path[closest_position]);
-        return vehicle->battery-station->getChargedAmount(charging_times[station]) -inst.dischargeRate * getAddedDistance(request, i, j) >= 0;
+        battery_after_insertion = battery.back() - added_battery_consumption;
+        return battery_after_insertion > 0.0;
     }
 }

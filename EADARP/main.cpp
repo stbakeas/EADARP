@@ -276,25 +276,9 @@ using namespace operations_research;
 int main() {
 	std::random_device rd;
 	RandLib randlib(rd());
-	inst.loadFromFile("Instances-MDHDARP/a10-120hetIUY.txt",2);
-	std::vector<Solution> P;
-	cout << "Creating Initial Population..." << endl;
-	for (size_t i = 0; i < 10; i++) {
-		int weight_combo = randlib.randint(0, inst.weight_combinations.size() - 1);
-		P.push_back(algorithms::details::Init1(weight_combo));
-		cout << "(" << inst.weight_combinations[weight_combo][0] << "," << inst.weight_combinations[weight_combo][1] << "," << inst.weight_combinations[weight_combo][2] << ")" << endl;
-		inst.weight_combinations.erase(inst.weight_combinations.begin() + weight_combo);
-	}
-	cout << "Starting the algorithm..." << endl;
-	Run run = algorithms::MDIG(P, 100, 180);
-	for (Solution s : run.archive) {
-		cout << "(";
-		for (int i=0; i<inst.objectives.size()-1; i++)
-		{
-			cout << s.objective_value[i] << ",";
-		}
-		cout << s.objective_value[2] << ")";
-		cout << "\n";
-	}
+	inst.loadFromFile("Instances-MDHDARP/a10-100hetIUY.txt",2);
+	Solution init = algorithms::details::Init1(1);
+	std::cout << "Assigned Requests: " << inst.requests.size() - init.rejected.size() << ".\n";
+	init.Display();
 	return EXIT_SUCCESS;
 }
