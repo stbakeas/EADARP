@@ -181,7 +181,7 @@ namespace algorithms {
 			std::vector<Position> batset;
 			std::vector<Position> capset;
 			for (EAV* v : available_vehicles) {
-				if (r->forbidden_vehicles[static_cast<int>(objective)].contains(v->id)) continue;
+				if (r->forbidden_vehicles[static_cast<int>(Instance::Objective::User)].contains(v->id)) continue;
 				bool batteryNotFound = true;
 				size_t length = current_solution.routes[v].path.size();
 				for (size_t i = 0; i < length-1; ++i)
@@ -280,6 +280,7 @@ namespace algorithms {
 						min_pos = *st;
 					}
 				}
+				if (min_cost > 1) return empty_route;
 				CStation* cs = min_pos.charging_station;
 				if (cs != nullptr) current_solution.routes[min_pos.vehicle].insertNode(inst.nodes.at(cs->id - 1), min_pos.cs_pos + 1);
 				current_solution.routes[min_pos.vehicle].insertRequest(r, min_pos.origin_pos + 1, min_pos.dest_pos + 1);

@@ -63,7 +63,7 @@ public:
 	/*
 	* Prints the routes on the screen
 	*/
-	void Display();
+	void Display(int what);
 
 	/*
 	* Adds the corresponding start and end depots of each vehicle in the routes.

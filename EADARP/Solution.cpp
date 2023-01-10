@@ -44,16 +44,26 @@ void Solution::deleteEmptyRoutes()
             ++it;
 }
 
-void Solution::Display() {
-    for (auto my_route : routes) {
-        std::cout << "Route ID: " << my_route.first->id << " with size " << my_route.second.path.size() << " : ";
-        size_t length = my_route.second.path.size();
-        for (size_t i = 0; i < length - 1; i++)
-        {
-            std::cout << "(" << my_route.second.path.at(i)->id << "," << my_route.second.battery.at(i) << "kWh" << "," << my_route.second.loads[i] << ")->";
+void Solution::Display(int i) {
+    if (i == 0) {
+        for (auto my_route : routes) {
+            std::cout << "Route ID: " << my_route.first->id << " with size " << my_route.second.path.size() << " : ";
+            size_t length = my_route.second.path.size();
+            for (size_t i = 0; i < length - 1; i++)
+            {
+                std::cout << "(" << my_route.second.path.at(i)->id << "," << my_route.second.battery.at(i) << "kWh" << "," << my_route.second.loads[i] << ")->";
+            }
+            std::cout << "(" << my_route.second.path.back()->id << "," << my_route.second.battery.back() << "kWh" << "," << my_route.second.loads.back() << ")";
+            std::cout << "\n\n";
         }
-        std::cout << "(" << my_route.second.path.back()->id << "," << my_route.second.battery.back() << "kWh" << "," << my_route.second.loads.back() << ")";
-        std::cout << "\n\n";
+    }
+    else if (i == 1) {
+        std::cout << AchievementFunction(0.3) << std::endl;
+    }
+    else {
+        std::cout << "(";
+        for (int i = 0; i < 2; i++) std::cout << objective_value[i] << ",";
+        std::cout << objective_value[2] << ")";
     }
 }
 
