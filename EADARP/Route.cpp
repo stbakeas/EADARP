@@ -178,13 +178,15 @@ void Route::updateMetrics() {
     battery.clear();
     battery.resize(n);
     requests.clear();
+    for (CStation* cs : inst.charging_stations) { assigned_cs[cs] = false; charging_times[cs] = 0; }
+    BasicScheduling();
     for (int i = 0; i < n; i++) {
         node_indices[path.at(i)] = i;
         computeLoad(i);
         computeBatteryLevel(i);
+        computeChargingTime(i);
         if (path[i]->isOrigin()) requests.push_back(inst.getRequest(path[i]));
     }
-    BasicScheduling();
     LazyScheduling();
     storeNaturalSequences();
     computeTotalCost();
@@ -385,7 +387,6 @@ void Route::insertNode(Node* node, int index)
         else { 
             node_indices[node] = index;
             path.insert(path.begin() + index, node);
-            computeChargingTime(index);
         }
     }
    
@@ -417,23 +418,22 @@ void Route::computeChargingTime(int nodePosition) {
                 /* If maximum stay time has negative value,
                 * it means we can not add extra charging time without violating time constraints at
                 * subsequent nodes. */
-                double maximum_stay_time = get_forward_time_slack(nodePosition) - (inst.getTravelTime(path[nodePosition - 1], path[nodePosition])
-                    + inst.getTravelTime(path[nodePosition], path[nodePosition + 1])
-                    - inst.getTravelTime(path[nodePosition - 1], path[nodePosition + 1]));
+                double maximum_stay_time = get_forward_time_slack(nodePosition + 1)
+                    - s->getRequiredTime(battery[nodePosition],fuel_needed)
+                    - inst.getTravelTime(path[nodePosition], path[nodePosition + 1]);
 
                 extra_amount = round(s->getChargedAmount(maximum_stay_time));
                 desired_amount = fuel_needed + extra_amount;
                 if (current_node->isEndingDepot()) {
                     double returned_battery = vehicle->battery_return_percentage * vehicle->battery;
-                    if (desired_amount-fuel_needed< returned_battery)
-                        desired_amount+=returned_battery;
+                    if (desired_amount - fuel_needed < returned_battery)
+                        desired_amount += returned_battery;
                 }
                 desired_amount = std::min(desired_amount, vehicle->battery);
             }
             else desired_amount = std::min(fuel_needed, vehicle->battery);
         }
-        double arrival_battery = battery.at(nodePosition) - inst.getFuelConsumption(path[nodePosition - 1], path[nodePosition]);
-        charging_times[s] = s->getRequiredTime(arrival_battery, desired_amount);
+        charging_times[s] = s->getRequiredTime(battery[nodePosition], desired_amount);
     }
 }
 
@@ -508,10 +508,6 @@ void Route::removeNode(int index)
         Node* node = path[index];
         node_indices.erase(node);
         path.erase(path.begin() + index);
-        if (node->isChargingStation()) {
-            assigned_cs[inst.getChargingStation(node)] = false;
-            charging_times[inst.getChargingStation(node)] = 0;
-        }
     }
 }
 
