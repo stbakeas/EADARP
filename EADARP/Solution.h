@@ -75,6 +75,8 @@ public:
 	*/
 	double AchievementFunction(double rho);
 
+	double WeightedSum();
+
 	double distanceFrom(Solution s, bool objectiveSpace = true);
 	/*
 	* Calculate the added cost of inserting a request in the solution

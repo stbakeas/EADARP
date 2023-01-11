@@ -26,7 +26,6 @@ public:
 	std::vector<double> ride_times;
 	std::unordered_map<CStation*, double> charging_times;
 	std::vector<double> stay_times;
-	std::vector<double> FTS;
 	std::vector<int> loads;
 	std::vector<double> battery;
 	std::vector<std::vector<int>> ml; //ml{i,j} stores the maximum load of the vehicle between nodes with positions i and j respectively.
@@ -44,8 +43,6 @@ public:
 	bool hasNoRequests(); // Check if the route contains no requests.
 	bool isFeasible();
 	Request* selectRandomRequest(RandLib randlib);
-	//We assume the origin will be inserted after position i and the destination after position j in the route.
-	bool isInsertionTimeFeasible(Request *request, int i, int j); 
 	bool isInsertionBatteryFeasible(Request* request, int i, int j);
 	bool isInsertionCapacityFeasible(Request* request, int i, int j);
 	bool batteryFeasibilityTest(Request* request, int i, int j);
@@ -65,7 +62,6 @@ public:
 	 */
 	void deleteRedundantChargingStations();
 	void computeChargingTime(int nodePosition);
-	void computeForwardTimeSlack(int i); //Get the forward time slack of node at position i
 	void computeLoad(int i);
 	void computeArrivalTime(int i);
 	void computeModifiedStartOfServiceTime(int i);

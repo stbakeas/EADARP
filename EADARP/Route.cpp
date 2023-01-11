@@ -16,7 +16,7 @@ Route::Route(EAV* vehicle) {
         charging_times[s] = 0;
         assigned_cs[s] = false;
     }
-    policy = ChargingPolicy::MINIMAL;
+    policy = ChargingPolicy::CONSERVATIVE;
 }
 
 double Route::getEarliestTime(int i) {
@@ -66,8 +66,6 @@ void Route::BasicScheduling() {
     ride_times.resize(n);
     stay_times.clear();
     stay_times.resize(n);
-    FTS.clear();
-    FTS.resize(n);
 
     for (int i = 0; i < n; i++)
     {
@@ -79,7 +77,6 @@ void Route::BasicScheduling() {
         computeDepartureTime(i);
         computeRideTime(i);
     }
-    for (int i=0; i<n;i++) computeForwardTimeSlack(n - i - 1);
 }
 
 void Route::storeNaturalSequences()
@@ -98,7 +95,7 @@ void Route::storeNaturalSequences()
 
 double Route::get_forward_time_slack(int i)
 {
-    double min_time_slack = FLT_MAX;
+    double min_time_slack = DBL_MAX;
 
     for (int j = i; j < path.size(); j++) {
         double pj = 0.0;
@@ -106,19 +103,21 @@ double Route::get_forward_time_slack(int i)
         if (path[j]->isDestination() && node_indices[inst.getRequest(path[j])->origin] < i)
             pj = ride_times[j];
 
-        double time_slack = std::accumulate(waiting_times.begin() + i+1, waiting_times.begin() + j + 1, 0.0) +
-            std::max(0.0, std::min(path[j]->latest - start_of_service_times[j], path[j]->maximum_travel_time - pj));
+        double latest_j = (j == path.size() - 1) ? vehicle->end_time : path[j]->latest;
+        double time_slack = std::accumulate(waiting_times.begin() + i+1, waiting_times.begin() + j+1, 0.0) +
+            std::max(0.0, std::min(latest_j - start_of_service_times[j], path[j]->maximum_travel_time - pj));
 
         if (time_slack < min_time_slack)
             min_time_slack = time_slack;
     }
+
 
     return min_time_slack;
 }
 
 void Route::LazyScheduling() {
     int n = (int)path.size();
-    double forward_time_slack_at_0 = FTS.at(0);
+    double forward_time_slack_at_0 = get_forward_time_slack(0);
 
     // STEP 4
     departure_times.at(0) = vehicle->start_time +  std::min(
@@ -140,12 +139,10 @@ void Route::LazyScheduling() {
     // STEP 6
     for (int i = 1; i < path.size() - 1; i++) computeRideTime(i);
 
-    for (int i = 0; i < path.size(); i++) computeForwardTimeSlack(n - i - 1);
-
     // STEP 7
     for (int j = 1; j < path.size() - 1; j++) {
             // STEP 7 (a)
-            double forward_time_slack =FTS.at(j);
+            double forward_time_slack =get_forward_time_slack(j);
 
             // STEP 7 (b)
             waiting_times.at(j) += std::min(
@@ -168,7 +165,6 @@ void Route::LazyScheduling() {
 
             // STEP 7 (d):
             for (int i = j + 1; i < path.size() - 1; i++) computeRideTime(i);
-            for (int i = j; i < path.size(); i++) computeForwardTimeSlack(n - i - 1);
     }
 
 }
@@ -182,26 +178,20 @@ void Route::updateMetrics() {
     battery.clear();
     battery.resize(n);
     requests.clear();
-    BasicScheduling();
     for (int i = 0; i < n; i++) {
         node_indices[path.at(i)] = i;
         computeLoad(i);
         computeBatteryLevel(i);
         if (path[i]->isOrigin()) requests.push_back(inst.getRequest(path[i]));
     }
+    BasicScheduling();
+    LazyScheduling();
     storeNaturalSequences();
     computeTotalCost();
 }
 
 void Route::computeLoad(int i) {
     loads.at(i) = (i == 0) ? 0 : loads.at(i - 1) + path.at(i)->load;
-}
-
-void Route::computeForwardTimeSlack(int i) {
-    if (i== path.size()-1) FTS.at(i) = 
-        std::max(0.0, waiting_times.at(i) + std::min(path.at(i)->latest-start_of_service_times.at(i),path.at(i)->maximum_travel_time-ride_times.at(i)));
-    else FTS.at(i)= 
-        std::min(FTS.at(i+1), waiting_times.at(i) + std::max(0.0, std::min(path.at(i)->latest - start_of_service_times.at(i), path.at(i)->maximum_travel_time - ride_times.at(i))));
 }
 
 void Route::computeArrivalTime(int i)
@@ -427,7 +417,7 @@ void Route::computeChargingTime(int nodePosition) {
                 /* If maximum stay time has negative value,
                 * it means we can not add extra charging time without violating time constraints at
                 * subsequent nodes. */
-                double maximum_stay_time = FTS.at(nodePosition) - (inst.getTravelTime(path[nodePosition - 1], path[nodePosition])
+                double maximum_stay_time = get_forward_time_slack(nodePosition) - (inst.getTravelTime(path[nodePosition - 1], path[nodePosition])
                     + inst.getTravelTime(path[nodePosition], path[nodePosition + 1])
                     - inst.getTravelTime(path[nodePosition - 1], path[nodePosition + 1]));
 
@@ -530,28 +520,6 @@ void Route::removeRequest(Request* request)
     std::pair < size_t, size_t > indices= getRequestPosition(request);
     removeNode(indices.first);
     removeNode(indices.second-1);
-}
-
-//We assume the origin and destination of the request are inserted after indices i and j respectively
-bool Route::isInsertionTimeFeasible(Request* request, int i, int j) {
-    double arrival_time = departure_times.at(i) + inst.getTravelTime(path.at(i), request->origin);
-    double waiting_time_origin = std::max(0.0, request->origin->earliest - arrival_time);
-    if (j < i || i<0 || j<0 || i+1 >= path.size() || j+1 >= path.size()) return false;
-    else if (i == j) {
-        return arrival_time + waiting_time_origin +
-            request->origin->service_duration + inst.getTravelTime(request->origin, request->destination) <=
-            request->destination->latest
-            &&
-            getAddedDistance(request,i,j,Measure::Time)<= FTS.at(i + 1);
-
-    }
-    else {
-        double origin_detour = getAddedDistance(request->origin, i, Measure::Time);
-        double new_dep_time = departure_times.at(j) + std::max(0.0,origin_detour-std::accumulate(waiting_times.begin() + i + 1, waiting_times.begin() + j, 0.0));
-        return new_dep_time + inst.getTravelTime(path.at(j), request->destination) <= request->destination->latest &&
-            origin_detour <= FTS.at(i + 1) &&
-            getAddedDistance(request,i,j,Measure::Time) <= FTS.at(j + 1);
-    }
 }
 
 bool Route::isInsertionCapacityFeasible(Request* request, int i, int j) {

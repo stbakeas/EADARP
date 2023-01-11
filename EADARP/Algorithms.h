@@ -41,7 +41,7 @@ namespace algorithms
         /**
          * Randomly selects a request and inserts it at its best position.
          */
-		Solution Init1(int iter);
+		Solution Init1(int weights);
 
         /**
         * Parallel Insertion Heuristic proposed by Yue Su, Nicolas Dupin, Jakob Puchinger

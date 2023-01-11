@@ -165,6 +165,14 @@ double Solution::AchievementFunction(double rho) {
     return maxValue+rho * std::accumulate(deviations.begin(), deviations.end(), 0.0);
 }
 
+double Solution::WeightedSum() {
+    double sum = 0;
+    for (auto objective : inst.objectives) {
+        sum += weights[static_cast<int>(objective)] * objective_value[static_cast<int>(objective)];
+    }
+    return sum;
+}
+
 double Solution::distanceFrom(Solution s, bool objectiveSpace) {
     double distance = 0;
     if (objectiveSpace) {
@@ -228,7 +236,6 @@ double Solution::getInsertionCost(Request* r, Position p, Instance::Objective ob
         new_cost = AchievementFunction(0.3);
         cost = new_cost - current_cost;
         addRoute(old_route);
-        break;
     }
     }
 
