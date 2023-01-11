@@ -298,7 +298,7 @@ namespace algorithms {
 			Solution solution;	
 			if (weights>=0) solution.SetWeights(inst.weight_combinations[weights]);
 			std::random_device rd;
-			RandLib randlib(rd());
+			RandLib randlib(1);
 			auto start = std::chrono::steady_clock::now();
 			solution.AddDepots();
 			std::vector<Request*> unassigned = inst.requests;

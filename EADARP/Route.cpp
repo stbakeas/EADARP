@@ -16,7 +16,7 @@ Route::Route(EAV* vehicle) {
         charging_times[s] = 0;
         assigned_cs[s] = false;
     }
-    policy = ChargingPolicy::CONSERVATIVE;
+    policy = ChargingPolicy::MINIMAL;
 }
 
 double Route::getEarliestTime(int i) {
@@ -398,6 +398,7 @@ void Route::insertRequest(Request* r, int i, int j) {
 
 void Route::computeChargingTime(int nodePosition) {
     if (path.at(nodePosition)->isChargingStation()) {
+        double arrival_battery = battery.at(nodePosition) - inst.getFuelConsumption(path[nodePosition - 1], path[nodePosition]);
         CStation* s = inst.getChargingStation(path[nodePosition]);
         if (assigned_cs[s]) batteryFeasible = false;
         else assigned_cs[s] = true;
@@ -419,7 +420,8 @@ void Route::computeChargingTime(int nodePosition) {
                 * subsequent nodes. */
                 double maximum_stay_time = get_forward_time_slack(nodePosition) - (inst.getTravelTime(path[nodePosition - 1], path[nodePosition])
                     + inst.getTravelTime(path[nodePosition], path[nodePosition + 1])
-                    - inst.getTravelTime(path[nodePosition - 1], path[nodePosition + 1]));
+                    - inst.getTravelTime(path[nodePosition - 1], path[nodePosition + 1]))
+                    - s->getRequiredTime(arrival_battery, fuel_needed);
 
                 extra_amount = round(s->getChargedAmount(maximum_stay_time));
                 desired_amount = fuel_needed + extra_amount;
@@ -432,7 +434,7 @@ void Route::computeChargingTime(int nodePosition) {
             }
             else desired_amount = std::min(fuel_needed, vehicle->battery);
         }
-        double arrival_battery = battery.at(nodePosition) - inst.getFuelConsumption(path[nodePosition - 1], path[nodePosition]);
+        
         charging_times[s] = s->getRequiredTime(arrival_battery, desired_amount);
     }
 }
