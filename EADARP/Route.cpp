@@ -16,7 +16,7 @@ Route::Route(EAV* vehicle) {
         charging_times[s] = 0;
         assigned_cs[s] = false;
     }
-    policy = ChargingPolicy::CONSERVATIVE;
+    policy = ChargingPolicy::MINIMAL;
 }
 
 double Route::getEarliestTime(int i) {
@@ -569,18 +569,21 @@ bool Route::isInsertionBatteryFeasible(Request* request, int i, int j) {
 bool Route::batteryFeasibilityTest(Request* request, int i, int j) {
     if (j < i || i < 0 || j < 0 || i + 1 >= path.size() || j + 1 >= path.size()) return false;
     else {
-        double battery_after_insertion;
-        double added_battery_consumption = getAddedDistance(request, i, j, Measure::Battery);
+        //Spot the important nodes (depots,charging stations) the request lies between.
+        int closest_left = 0;
+        int closest_right = path.size() - 1;
         for (auto pair : assigned_cs) {
             if (pair.second) {
-                int index = node_indices[inst.nodes[pair.first->id - 1]];
-                if (index > j) {
-                    battery_after_insertion = battery[index] - added_battery_consumption;
-                    if (battery_after_insertion < 0.0) return false;
-                }
+                int index = node_indices[inst.nodes.at(pair.first->id - 1)];
+                if (index <= i && index>closest_left) closest_left = index;
+                if (index > j && index<closest_right) closest_right = index;
             }
         }
-        battery_after_insertion = battery.back() - added_battery_consumption;
-        return battery_after_insertion > 0.0;
+        if (!closest_left || policy == ChargingPolicy::FULL) return battery[closest_right] - getAddedDistance(request, i, j, Measure::Battery) >= 0.0;
+        else {
+            CStation* s = inst.getChargingStation(path[closest_left]);
+            return s->getChargedAmount(charging_times[s])
+                + getAddedDistance(request, i, j, Measure::Battery) <= vehicle->battery;
+        }
     }
 }
