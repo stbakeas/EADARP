@@ -85,9 +85,9 @@ namespace algorithms {
 			if (s.objective_value[0] > inst.nadir[0]) inst.nadir[0] = s.objective_value[0];
 			s = Repair(s, Instance::Objective::NumberOfObjectives);
 			if (s.objective_value[0] > inst.nadir[0]) inst.nadir[0] = s.objective_value[0];
-			float before = s.AchievementFunction(0.3);
+			double before = s.AchievementFunction(0.3);
 			for (Move move : intraRouteSequence) s = move(s, NeighborChoice::BEST);
-			float after = s.AchievementFunction(0.3);
+			double after = s.AchievementFunction(0.3);
 			if (after < before) statistics[2]++;
 			if (s.AchievementFunction(0.3) < incumbent.AchievementFunction(0.3)) {
 				incumbent = s;
@@ -173,6 +173,8 @@ namespace algorithms {
 
 		Route PairInsertion(Request* r, Solution s, std::vector<EAV*> available_vehicles,Instance::Objective objective,bool includeCS) {
 			std::random_device rd;
+			int user = static_cast<int>(Instance::Objective::User);
+			int owner = static_cast<int>(Instance::Objective::Owner);
 			RandLib randlib(rd());
 			Solution current_solution = s;
 			Route empty_route;
@@ -181,7 +183,12 @@ namespace algorithms {
 			std::vector<Position> batset;
 			std::vector<Position> capset;
 			for (EAV* v : available_vehicles) {
-				if (r->forbidden_vehicles[static_cast<int>(Instance::Objective::User)].contains(v->id)) continue;
+				if (r->forbidden_vehicles[user].contains(v->id) &&
+				    r->percentages[user][r->forbidden_vehicles[user][v->id]] < std::min(1.0f,3*current_solution.weights[user]))
+						continue;
+				if (r->forbidden_vehicles[owner].contains(v->id)
+					&& r->percentages[owner][r->forbidden_vehicles[owner][v->id]] < std::min(1.0f, 3*current_solution.weights[owner]))
+						continue;
 				bool batteryNotFound = true;
 				size_t length = current_solution.routes[v].path.size();
 				for (size_t i = 0; i < length-1; ++i)
@@ -985,7 +992,7 @@ namespace algorithms {
 			return best;
 		}
 
-		Solution WorstRemoval(Solution s, double removal_ratio, float randomness) {
+		Solution WorstRemoval(Solution s, double removal_ratio, double randomness) {
 			std::random_device rd;
 			RandLib randlib(rd());
 			Solution current_solution = s;
@@ -1075,7 +1082,7 @@ namespace algorithms {
 			return s;
 		}
 
-		Solution Destroy(Solution s, double removal_ratio, float randomness, Instance::Objective objective)
+		Solution Destroy(Solution s, double removal_ratio, double randomness, Instance::Objective objective)
 		{
 			std::random_device rd;
 			RandLib randlib(rd());

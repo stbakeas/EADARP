@@ -1,12 +1,13 @@
 #include "Run.h"
 #include <algorithm>
+#include <unordered_set>
 
-float SharingFunction(Solution s1, Solution s2, double sigma) {
-	return std::max(0.0, 1 - s1.distanceFrom(s2) / sigma);
+double SharingFunction(Solution s1, Solution s2, double sigma) {
+	return std::max(0.0, 1.0 - s1.distanceFrom(s2) / sigma);
 }
 
-float NicheCount(Solution s, std::unordered_set<Solution,Solution::SolutionHash> population) {
-	float sum = 1;
+double NicheCount(Solution s, std::unordered_set<Solution,Solution::SolutionHash> population) {
+	double sum = 1;
 	for (Solution sol : population) sum += SharingFunction(s, sol, 200);
 	return sum;
 }

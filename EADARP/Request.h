@@ -1,7 +1,8 @@
  #pragma once
 #include "Node.h"
-#include <unordered_set>
+#include <unordered_map>
 #include "EAV.h"
+#include <map>
 
 class Request {
 public:
@@ -10,7 +11,8 @@ public:
 	Node* origin;
 	Node* destination;
 	int reward;
-	std::unordered_set<int> forbidden_vehicles[4];
+	std::unordered_map<int,double> forbidden_vehicles[4];
+	std::map<double, double> percentages[4];
 	Request() {};
 	Request(Node* origin, Node* destination,Direction direction);
 	Node* getCriticalVertex();

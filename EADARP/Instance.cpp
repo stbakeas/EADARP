@@ -184,7 +184,7 @@ void Instance::loadFromFile(const std::string instance_file_name, int seed) {
         }
         int total_capacity = std::accumulate(vehicle_capacities.begin(), vehicle_capacities.end(), 0.0);
         if (total_capacity > maximumCapacity) maximumCapacity = total_capacity;
-        int start_time = randlib.randint(0, Horizon - max_route_duration);
+        int start_time = randlib.randint(0, Horizon-max_route_duration);
         int end_time = start_time + max_route_duration;
 
         Node* node_start = new Node(2 * requests_num + i);
@@ -351,44 +351,58 @@ void Instance::Preprocessing() {
     int request_count;
     int user = static_cast<int>(Instance::Objective::User);
     int owner = static_cast<int>(Instance::Objective::Owner);
-    for (EAV* v : inst.vehicles){
-        int count[2] = { 0,0 };
-        Node* start_depot = inst.getDepot(v, "start");
-        Node* end_depot = inst.getDepot(v, "end");
-        std::cout << v->end_time << std::endl;
-        for (Request* r: inst.requests) {
+    for (Request* r : inst.requests){
+
+        for (EAV* v: inst.vehicles) {
+            Node* start_depot = inst.getDepot(v, "start");
+            Node* end_depot = inst.getDepot(v, "end");
             double violation[2] = { 0.0,0.0 };
             if (r->direction == Request::Direction::INBOUND) {
                 violation[user] = v->start_time + inst.getTravelTime(start_depot, r->origin) - r->origin->latest;
                 if (violation[user]>0) {
-                    r->forbidden_vehicles[static_cast<int>(Objective::User)].insert(v->id);
-                    count[static_cast<int>(Objective::User)]++;
+                    r->forbidden_vehicles[user][v->id]=violation[user];
                 }
-                   
-                if (r->origin->earliest + r->origin->service_duration + inst.getTravelTime(r->origin, r->destination) +
-                    r->destination->service_duration + inst.getTravelTime(r->destination, end_depot) > v->end_time) {
-                    r->forbidden_vehicles[static_cast<int>(Objective::Owner)].insert(v->id);
-                    count[static_cast<int>(Objective::Owner)]++;
+                violation[owner] = r->origin->earliest + r->origin->service_duration + inst.getTravelTime(r->origin, r->destination) +
+                    r->destination->service_duration + inst.getTravelTime(r->destination, end_depot) - v->end_time;
+                if (violation[owner]>0) {
+                    r->forbidden_vehicles[owner][v->id] = violation[owner];
                 }
-                   
-
-
             }
             else {
-                if (v->start_time + inst.getTravelTime(start_depot, r->origin) + r->origin->service_duration +
-                    inst.getTravelTime(r->origin, r->destination) > r->destination->latest) {
-                    r->forbidden_vehicles[static_cast<int>(Objective::User)].insert(v->id);
-                    count[static_cast<int>(Objective::User)]++;
+                violation[user] = v->start_time + inst.getTravelTime(start_depot, r->origin) + r->origin->service_duration +
+                    inst.getTravelTime(r->origin, r->destination) - r->destination->latest;
+
+                if (violation[user]>0) {
+                    r->forbidden_vehicles[user][v->id] = violation[user];
                 }
-                if (r->destination->earliest + r->destination->service_duration +
-                    inst.getTravelTime(r->destination, end_depot) > v->end_time) {
-                    r->forbidden_vehicles[static_cast<int>(Objective::Owner)].insert(v->id);
-                    count[static_cast<int>(Objective::Owner)]++;
+
+                violation[owner] = r->destination->earliest + r->destination->service_duration +
+                    inst.getTravelTime(r->destination, end_depot)-v->end_time;
+                if (violation[owner]>0) {
+                    r->forbidden_vehicles[owner][v->id]=violation[owner];
                 }
             }
         }
-        std::cout << "Vehicle " << v->id << " has " << count[0] << " forbidden requests for user & " << count[1] << " for owner.\n";
+
+        for (int stakeholder : {user, owner}) {
+            int length = r->forbidden_vehicles[stakeholder].size();
+            int counter = 1;
+            for (const auto& pair : r->forbidden_vehicles[stakeholder]) {
+                double violation = pair.second;
+                if (r->percentages[stakeholder].contains(violation)) {
+                    violation = nextafter(violation, std::numeric_limits<decltype(violation)>::infinity());
+                }
+                r->percentages[stakeholder][violation] = float(counter) / float(length);
+                counter++;
+            }
+        }
+        std::cout << "Request " << r->origin->id << " has " << r->forbidden_vehicles[user].size() << " vehicles for user & "
+            << r->forbidden_vehicles[owner].size() << " for owner.\n";
+
+        
+
     }
+
     for (int i = 1; i < 9; i++) {
         for (int j = 1; j < 9 - i + 1; j++) {
             std::vector<float> coefficients = { static_cast<float>(i) / 10,static_cast<float>(j) / 10,static_cast<float>(10 - i - j) / 10 };
