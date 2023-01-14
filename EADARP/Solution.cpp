@@ -104,8 +104,7 @@ void Solution::FixHardConstraints() {
                 for (size_t j = i; j < routes[v].path.size(); ++j)
                 {
                     if (inst.isForbiddenArc(routes[v].path.at(j), r->destination)) continue;
-                    Position p = Position(v, i, j, nullptr, -1);
-                    if (routes[v].isInsertionCapacityFeasible(r, i, j)) capset.push_back(p);
+                    if (routes[v].isInsertionCapacityFeasible(r, i, j)) capset.emplace_back(v, i, j, nullptr, -1);
 
                 }
             }

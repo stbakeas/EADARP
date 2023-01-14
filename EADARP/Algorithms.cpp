@@ -140,7 +140,7 @@ namespace algorithms {
 				if (candidate.AchievementFunction(0.3) < incumbent.AchievementFunction(0.3) + threshold)
 					incumbent = candidate;
 			}
-			incumbent = GreedyInsertion(incumbent);
+			incumbent = Repair(incumbent,Instance::Objective::NumberOfObjectives);
 			if (incumbent.AchievementFunction(0.3) < run.best.AchievementFunction(0.3)) {
 				run.best = incumbent;
 				i_imp = 0;
@@ -208,14 +208,15 @@ namespace algorithms {
 								continue;
 							
 						}
-						Position p = Position(v, i, j, nullptr, -1);
-						p.setAddedDistance(current_solution.routes[v].getAddedDistance(r, i, j));
+						double added_distance = current_solution.routes[v].getAddedDistance(r, i, j);
 						if (current_solution.routes[v].batteryFeasibilityTest(r, i, j))
 						{
-							batset.push_back(p);
+							batset.emplace_back(v, i, j, nullptr, -1);
+							batset.back().setAddedDistance(added_distance);
 							batteryNotFound = false;
 							if (current_solution.routes[v].isInsertionCapacityFeasible(r, i, j)) {
-								capset.push_back(p);
+								capset.emplace_back(v, i, j, nullptr, -1);
+								capset.back().setAddedDistance(added_distance);
 							}
 						}
 					}
@@ -255,13 +256,14 @@ namespace algorithms {
 											inst.isForbiddenArc(current_solution.routes[v].path.at(j), r->destination))
 											continue;
 									}
-									Position p = Position(v, i, j, min_s, pos);
-									p.setAddedDistance(stationAddedDistance + current_solution.routes[v].getAddedDistance(r,i,j));
+									double added_distance = current_solution.routes[v].getAddedDistance(r, i, j);
 									if (current_solution.routes[v].batteryFeasibilityTest(r, i, j))
 									{
-										batset.push_back(p);
+										batset.emplace_back(v, i, j, min_s, pos);
+										batset.back().setAddedDistance(stationAddedDistance + added_distance);
 										if (current_solution.routes[v].isInsertionCapacityFeasible(r, i, j)) {
-											capset.push_back(p);
+											capset.emplace_back(v, i, j, min_s, pos);
+											capset.back().setAddedDistance(stationAddedDistance + added_distance);
 											positionFound = true;
 										}
 
@@ -305,7 +307,7 @@ namespace algorithms {
 			Solution solution;	
 			if (weights>=0) solution.SetWeights(inst.weight_combinations[weights]);
 			std::random_device rd;
-			RandLib randlib(1);
+			RandLib randlib(rd());
 			auto start = std::chrono::steady_clock::now();
 			solution.AddDepots();
 			std::vector<Request*> unassigned = inst.requests;
@@ -468,10 +470,9 @@ namespace algorithms {
 									continue;
 
 							}
-							Position p = Position(v, i, j, nullptr, -1);
 							if (solution.routes[v].batteryFeasibilityTest(r, i, j) &&
 								solution.routes[v].isInsertionCapacityFeasible(r, i, j))
-								feasible.push_back(p);
+								feasible.emplace_back(v, i, j, nullptr, -1);
 						}
 					}
 					if (feasible.empty()) continue;
@@ -992,96 +993,6 @@ namespace algorithms {
 			return best;
 		}
 
-		Solution WorstRemoval(Solution s, double removal_ratio, double randomness) {
-			std::random_device rd;
-			RandLib randlib(rd());
-			Solution current_solution = s;
-			size_t num_of_assigned_requests = inst.requests.size() - s.rejected.size();
-			int removal_number = ceil(num_of_assigned_requests * removal_ratio);
-			
-			std::vector<std::pair<Request*,std::pair<EAV*,double>>> requestPosition;
-			for (EAV* v : inst.vehicles) {
-				for (size_t i = 1; i < current_solution.routes[v].path.size()-1; i++)
-				{
-					if (current_solution.routes[v].path[i]->isOrigin()) {
-						Request* r = inst.getRequest(current_solution.routes[v].path[i]);
-						//Calculate contribution in achievement function
-						double old_cost = current_solution.AchievementFunction(0.3);
-						Route new_route = current_solution.routes[v];
-						new_route.removeRequest(r);
-						new_route.updateMetrics();
-						current_solution.addRoute(new_route);
-						double new_cost = current_solution.AchievementFunction(0.3);
-						std::pair<EAV*, double> vehicleAndCost = {v,old_cost-new_cost};
-						requestPosition.push_back(std::pair<Request*,std::pair<EAV*,double>>(r,vehicleAndCost));
-						current_solution = s;
-					}
-				}
-			}
-			std::sort(requestPosition.begin(), requestPosition.end(),
-				[](std::pair<Request*, std::pair<EAV*, double>> pair1, std::pair<Request*, std::pair<EAV*, double>> pair2)
-				{ return pair1.second.second > pair2.second.second; }
-			);
-			for (size_t i = 0; i < removal_number; i++) {
-				int index = floor(pow(randlib.unifrnd(0,0.99), randomness) * requestPosition.size());
-				EAV* vehicle = requestPosition[index].second.first;
-				Request* req = requestPosition[index].first;
-				Route route = current_solution.routes[vehicle];
-				route.removeRequest(req);
-				route.updateMetrics();
-				current_solution.addRoute(route);
-				current_solution.removed.push_back({req,vehicle});
-				requestPosition.erase(requestPosition.begin() + index);
-			}
-			return current_solution;
-		}
-
-		Solution GreedyInsertion(Solution s) {
-			std::random_device rd;
-			RandLib randlib(rd());
-			for (Request* req : s.rejected) s.removed.push_back({req,nullptr});
-			s.rejected.clear();
-			for (size_t i = 0; i < s.removed.size(); i++) {
-				bool notFound = false;
-				int index = randlib.randint(0, s.removed.size() - 1);
-				auto pair = s.removed[index];
-
-				std::vector<EAV*> vehicles = inst.vehicles;
-				if (pair.second!=nullptr) vehicles.erase(std::remove(vehicles.begin(),vehicles.end(),pair.second),vehicles.end());
-			    
-				Route new_route = PairInsertion(pair.first,s,vehicles,Instance::Objective::NumberOfObjectives,false);
-				if (new_route.isFeasible()) {
-					Route old_route = s.routes[new_route.vehicle];
-					double old_cost = s.AchievementFunction(0.3);
-					s.addRoute(new_route);
-					double new_cost = s.AchievementFunction(0.3);
-					if (old_cost < new_cost) {
-						s.addRoute(old_route);
-						notFound = true;
-					}
-				}
-				else notFound = true;
-				if (notFound && pair.second == nullptr) s.rejected.push_back(pair.first);
-				else if (notFound && pair.second != nullptr) {
-					new_route = PairInsertion(pair.first, s, { pair.second },Instance::Objective::NumberOfObjectives,false);
-					if (new_route.isFeasible()) {
-						Route old_route = s.routes[new_route.vehicle];
-						double old_cost = s.AchievementFunction(0.3);
-						s.addRoute(new_route);
-						double new_cost = s.AchievementFunction(0.3);
-						if (old_cost < new_cost) {
-							s.addRoute(old_route);
-							s.rejected.push_back(pair.first);
-						}
-					}
-					else s.rejected.push_back(pair.first);
-				}
-				s.removed.erase(s.removed.begin() + index);
-			}
-			
-			return s;
-		}
-
 		Solution Destroy(Solution s, double removal_ratio, double randomness, Instance::Objective objective)
 		{
 			std::random_device rd;
@@ -1134,7 +1045,7 @@ namespace algorithms {
 						}
 						}
 						std::pair<EAV*, double> vehicleAndCost = { v,cost};
-						requestPosition.push_back(std::pair<Request*, std::pair<EAV*, double>>(r, vehicleAndCost));
+						requestPosition.push_back ( {r,vehicleAndCost} );
 						current_solution = s;
 					}
 				}
@@ -1151,7 +1062,7 @@ namespace algorithms {
 				route.removeRequest(req);
 				route.updateMetrics();
 				current_solution.addRoute(route);
-				current_solution.removed.push_back({ req,vehicle });
+				current_solution.removed.push_back({req,vehicle});
 				requestPosition.erase(requestPosition.begin() + index);
 			}
 			

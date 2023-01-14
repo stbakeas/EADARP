@@ -100,10 +100,6 @@ namespace algorithms
 
 		Solution exchangeConsecutive(Solution s, NeighborChoice strategy);
 
-		Solution WorstRemoval(Solution s, double removal_ratio, double randomness);
-
-		Solution GreedyInsertion(Solution s);
-
 		Solution Destroy(Solution s, double removal_ratio, double randomness, Instance::Objective objective);
 		
 		Solution Repair(Solution s,Instance::Objective objective);
