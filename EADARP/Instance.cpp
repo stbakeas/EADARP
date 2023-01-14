@@ -152,7 +152,6 @@ void Instance::RandomInit(int request_num, int vehicles_num, int stations_num, i
 
 void Instance::loadFromFile(const std::string instance_file_name, int seed) {
     Horizon = 1440;
-    maximumCapacity = 8;
     dischargeRate = 0.055;
     maximumBattery = 14.85;
     returnedBatteryPercentage = 0.4;
@@ -184,6 +183,7 @@ void Instance::loadFromFile(const std::string instance_file_name, int seed) {
             file >> vehicle_capacities[i];
         }
         int total_capacity = std::accumulate(vehicle_capacities.begin(), vehicle_capacities.end(), 0.0);
+        if (total_capacity > maximumCapacity) maximumCapacity = total_capacity;
         int start_time = randlib.randint(0, Horizon - max_route_duration);
         int end_time = start_time + max_route_duration;
 
@@ -349,14 +349,18 @@ void Instance::Preprocessing() {
         }
     }
     int request_count;
-    for (EAV* v : inst.vehicles) {
+    int user = static_cast<int>(Instance::Objective::User);
+    int owner = static_cast<int>(Instance::Objective::Owner);
+    for (EAV* v : inst.vehicles){
         int count[2] = { 0,0 };
         Node* start_depot = inst.getDepot(v, "start");
         Node* end_depot = inst.getDepot(v, "end");
         std::cout << v->end_time << std::endl;
         for (Request* r: inst.requests) {
+            double violation[2] = { 0.0,0.0 };
             if (r->direction == Request::Direction::INBOUND) {
-                if (v->start_time + inst.getTravelTime(start_depot, r->origin) > r->origin->latest) {
+                violation[user] = v->start_time + inst.getTravelTime(start_depot, r->origin) - r->origin->latest;
+                if (violation[user]>0) {
                     r->forbidden_vehicles[static_cast<int>(Objective::User)].insert(v->id);
                     count[static_cast<int>(Objective::User)]++;
                 }

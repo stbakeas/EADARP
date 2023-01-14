@@ -13,5 +13,6 @@ public:
 	std::unordered_set<int> forbidden_vehicles[4];
 	Request() {};
 	Request(Node* origin, Node* destination,Direction direction);
+	Node* getCriticalVertex();
 	~Request() {};
 };

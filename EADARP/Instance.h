@@ -44,7 +44,7 @@ public:
     int numberOfDepots;
     double Horizon;
     double dischargeRate;
-    double maximumCapacity;
+    int maximumCapacity = 0.0;
     double returnedBatteryPercentage;
     double maximumBattery;
     double ideal[3];

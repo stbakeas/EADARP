@@ -5,3 +5,7 @@ Request::Request(Node* origin,Node* destination,Direction direction) {
 	this->direction = direction;
 	this->reward = 0.0;
 }
+
+Node* Request::getCriticalVertex() {
+	return direction == Request::Direction::INBOUND ? origin : destination;
+}

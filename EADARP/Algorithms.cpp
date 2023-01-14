@@ -81,7 +81,7 @@ namespace algorithms {
 		if (incumbent.objective_value[0] > inst.nadir[0]) inst.nadir[0] = incumbent.objective_value[0];
 		int iter = 0;
 		while (iter<max_iterations) {
-			Solution s = WorstRemoval(incumbent, 0.1, 5);
+			Solution s =Destroy(incumbent, 0.1, 5,Instance::Objective::NumberOfObjectives);
 			if (s.objective_value[0] > inst.nadir[0]) inst.nadir[0] = s.objective_value[0];
 			s = Repair(s, Instance::Objective::NumberOfObjectives);
 			if (s.objective_value[0] > inst.nadir[0]) inst.nadir[0] = s.objective_value[0];
