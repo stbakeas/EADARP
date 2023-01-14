@@ -13,6 +13,7 @@ public:
 	enum class Measure{Time,Distance,Battery};
 	bool batteryFeasible;
 	bool capacityFeasible;
+	bool adaptiveCharging;
 	ChargingPolicy policy;
 	std::vector<Request*> requests;
 	std::unordered_map<Node*, int> node_indices;

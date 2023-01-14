@@ -278,9 +278,9 @@ int main() {
 	RandLib randlib(rd());
 	inst.loadFromFile("Instances-MDHDARP/a10-100hetIUY.txt",2);
 	Solution init = algorithms::details::Init1(-1);
-	init.Display(2);
-	cout << "\n";
 	Run run = algorithms::IteratedGreedy(init, 30, 180);
+	run.init.Display(2);
+	cout << "\n";
 	run.best.Display(2);
 	return EXIT_SUCCESS;
 }
