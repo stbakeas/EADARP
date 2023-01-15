@@ -7,6 +7,7 @@
 #include <random>
 #include <numeric>
 #include "RandLib.h"
+#include <set>
 
 
 
@@ -352,47 +353,59 @@ void Instance::Preprocessing() {
     int user = static_cast<int>(Instance::Objective::User);
     int owner = static_cast<int>(Instance::Objective::Owner);
     for (Request* r : inst.requests){
-
+        std::set<double> all_violations[2];
         for (EAV* v: inst.vehicles) {
             Node* start_depot = inst.getDepot(v, "start");
             Node* end_depot = inst.getDepot(v, "end");
-            double violation[2] = { 0.0,0.0 };
+            double current_violation[2] = { 0.0,0.0 };
             if (r->direction == Request::Direction::INBOUND) {
-                violation[user] = v->start_time + inst.getTravelTime(start_depot, r->origin) - r->origin->latest;
-                if (violation[user]>0) {
-                    r->forbidden_vehicles[user][v->id]=violation[user];
-                }
-                violation[owner] = r->origin->earliest + r->origin->service_duration + inst.getTravelTime(r->origin, r->destination) +
-                    r->destination->service_duration + inst.getTravelTime(r->destination, end_depot) - v->end_time;
-                if (violation[owner]>0) {
-                    r->forbidden_vehicles[owner][v->id] = violation[owner];
+                for (int stakeholder : {user, owner}) {
+                    if (stakeholder == user) {
+                        current_violation[stakeholder] = v->start_time + inst.getTravelTime(start_depot, r->origin) - r->origin->latest;
+                    }
+                    else {
+                        current_violation[stakeholder] = r->origin->earliest + r->origin->service_duration + inst.getTravelTime(r->origin, r->destination) +
+                            r->destination->service_duration + inst.getTravelTime(r->destination, end_depot) - v->end_time;
+                    }
+                    if (current_violation[stakeholder] > 0) {
+                        if (all_violations[stakeholder].contains(current_violation[stakeholder])) {
+                            current_violation[stakeholder] =
+                                nextafter(current_violation[stakeholder], -std::numeric_limits<double>::infinity());
+                        }
+                        all_violations[stakeholder].insert(current_violation[stakeholder]);
+                        r->forbidden_vehicles[stakeholder][v->id] = current_violation[stakeholder];
+                    }
+
                 }
             }
             else {
-                violation[user] = v->start_time + inst.getTravelTime(start_depot, r->origin) + r->origin->service_duration +
-                    inst.getTravelTime(r->origin, r->destination) - r->destination->latest;
-
-                if (violation[user]>0) {
-                    r->forbidden_vehicles[user][v->id] = violation[user];
+                for (int stakeholder : {user, owner}) {
+                    if (stakeholder == user) {
+                        current_violation[stakeholder] = v->start_time + inst.getTravelTime(start_depot, r->origin) + r->origin->service_duration +
+                            inst.getTravelTime(r->origin, r->destination) - r->destination->latest;
+                    }
+                    else {
+                        current_violation[stakeholder] = r->destination->earliest + r->destination->service_duration +
+                            inst.getTravelTime(r->destination, end_depot) - v->end_time;
+                    }
+                    if (current_violation[stakeholder] > 0) {
+                        if (all_violations[stakeholder].contains(current_violation[stakeholder])) {
+                            current_violation[stakeholder] =
+                                nextafter(current_violation[stakeholder], -std::numeric_limits<double>::infinity());
+                        }
+                        all_violations[stakeholder].insert(current_violation[stakeholder]);
+                        r->forbidden_vehicles[stakeholder][v->id] = current_violation[stakeholder];
+                    }
                 }
-
-                violation[owner] = r->destination->earliest + r->destination->service_duration +
-                    inst.getTravelTime(r->destination, end_depot)-v->end_time;
-                if (violation[owner]>0) {
-                    r->forbidden_vehicles[owner][v->id]=violation[owner];
-                }
+                
             }
         }
 
         for (int stakeholder : {user, owner}) {
             int length = r->forbidden_vehicles[stakeholder].size();
-            int counter = 1;
-            for (const auto& pair : r->forbidden_vehicles[stakeholder]) {
-                double violation = pair.second;
-                if (r->percentages[stakeholder].contains(violation)) {
-                    violation = nextafter(violation, std::numeric_limits<decltype(violation)>::infinity());
-                }
-                r->percentages[stakeholder][violation] = float(counter) / float(length);
+            int counter = 0;
+            for (std::set<double>::reverse_iterator it = all_violations[stakeholder].rbegin(); it != all_violations[stakeholder].rend(); it++) {
+                r->percentages[stakeholder][*it] = float(counter) / float(length);
                 counter++;
             }
         }
