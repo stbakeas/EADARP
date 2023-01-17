@@ -855,7 +855,7 @@ namespace algorithms {
 					if (isRandom) i = randlib.randint(1, s.routes[v].path.size() - 2);
 					
 					if (s.routes[v].path[i]->isOrigin() && 
-						s.routes[v].path[i+1]->id-inst.requests.size()!= s.routes[v].path[i]->id){
+						!inst.isForbiddenArc(s.routes[v].path[i+1],s.routes[v].path[i])){
 						Route route = s.routes[v];
 						//Swap the two nodes
 						Node* intermediate = route.path[i];
@@ -889,7 +889,7 @@ namespace algorithms {
 					if (isRandom) i = randlib.randint(1, s.routes[v].path.size() - 2);
 
 					if (s.routes[v].path[i]->isDestination() &&
-						s.routes[v].path[i-1]->id + inst.requests.size() != s.routes[v].path[i]->id) {
+						!inst.isForbiddenArc(s.routes[v].path[i], s.routes[v].path[i-1])) {
 						Route route = s.routes[v];
 						//Swap the two nodes
 						Node* intermediate = route.path[i];
@@ -932,14 +932,12 @@ namespace algorithms {
 						route.path.at(i) = route.path.at(i+1);
 						route.path.at(i+1) = intermediate;
 						route.updateMetrics();
-						if (route.capacityFeasible) {
-							Solution neighbor = s;
-							neighbor.addRoute(route);
-							if (isRandom) return neighbor;
-							if (route.batteryFeasible && neighbor.AchievementFunction(0.3) < best.AchievementFunction(0.3)) {
-								if (strategy == NeighborChoice::FIRST) return neighbor;
-								best = neighbor;
-							}
+						Solution neighbor = s;
+						neighbor.addRoute(route);
+						if (isRandom) return neighbor;
+						if (route.isFeasible() && neighbor.AchievementFunction(0.3) < best.AchievementFunction(0.3)) {
+							if (strategy == NeighborChoice::FIRST) return neighbor;
+							best = neighbor;
 						}
 					}
 				}
@@ -1086,7 +1084,7 @@ namespace algorithms {
 				else notFound = true;
 				if (notFound && pair.second == nullptr) s.rejected.push_back(pair.first);
 				else if (notFound && pair.second != nullptr) {
-					new_route = PairInsertion(pair.first, s, { pair.second },objective,false);
+					new_route = PairInsertion(pair.first, s, { pair.second },objective,true);
 					if (new_route.isFeasible()) s.addRoute(new_route);
 					else s.rejected.push_back(pair.first);
 				}
