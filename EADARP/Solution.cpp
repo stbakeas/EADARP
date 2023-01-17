@@ -180,8 +180,8 @@ double Solution::distanceFrom(Solution s, bool objectiveSpace) {
     else 
     {
         for (EAV* v : inst.vehicles) {
-            std::vector<Request*> all_requests = s.routes[v].findAllRequests();
-            std::vector<Request*> this_requests = routes[v].findAllRequests();
+            std::vector<Request*> all_requests = s.routes[v].requests;
+            std::vector<Request*> this_requests = routes[v].requests;
             all_requests.insert(all_requests.end(), this_requests.begin(), this_requests.end());
             std::map<int, int> frequency;
             for (const auto& req : all_requests) frequency[req->origin->id]++;

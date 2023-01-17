@@ -17,7 +17,7 @@ Route::Route(EAV* vehicle) {
         assigned_cs[s] = false;
     }
     policy = ChargingPolicy::MINIMAL;
-    adaptiveCharging = true;
+    adaptiveCharging = false;
 }
 
 double Route::getEarliestTime(int i) {
@@ -455,24 +455,9 @@ void Route::computeChargingTime(int nodePosition) {
 
 std::pair<size_t, size_t> Route::getRequestPosition(const Request* r) {
     std::pair<size_t,size_t> positions;
-    for (size_t i = 0; i < path.size(); i++)
-    {
-        if (path.at(i)->id == r->origin->id) positions.first = i;
-        if (path.at(i)->id == r->destination->id) { 
-            positions.second = i;
-            break;
-        }
-    }
+    positions.first = node_indices[r->origin];
+    positions.second = node_indices[r->destination];
     return positions;
-}
-
-std::vector<Request*> Route::findAllRequests() {
-    std::vector<Request*> requests;
-    for (size_t i = 0; i < path.size(); i++)
-    {
-        if (path.at(i)->isOrigin()) requests.push_back(inst.getRequest(path.at(i)));
-    }
-    return requests;
 }
 
 CStation* Route::findBestChargingStationAfter(int i) {
@@ -510,11 +495,7 @@ CStation* Route::findBestChargingStationAfter(int i) {
 Request* Route::selectRandomRequest(RandLib randlib) {
     if (hasNoRequests()) return nullptr;
     else {
-        while (true) {
-            int random_node_index = randlib.randint(1, path.size() - 2);
-            Node* node = path[random_node_index];
-            if (node->isOrigin() || node->isDestination()) return inst.getRequest(node);
-        }
+        return requests.at(randlib.randint(0, requests.size() - 1));
     }
 }
 
@@ -621,7 +602,7 @@ bool Route::batteryFeasibilityTest(Request* request, int i, int j) {
                 }
             }
             battery_after_insertion = battery.back() - added_battery_consumption;
-            return battery_after_insertion > 0.0;
+            return battery_after_insertion >= 0.0;
         }
     }
 }

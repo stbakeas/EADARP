@@ -48,7 +48,6 @@ public:
 	bool isInsertionCapacityFeasible(Request* request, int i, int j);
 	bool batteryFeasibilityTest(Request* request, int i, int j);
 	std::pair<size_t, size_t> getRequestPosition(const Request* r);
-	std::vector<Request*> findAllRequests();
 	double getEarliestTime(int i); //Get the earliest time that node in position i in the route can be served
 	int getLoad(int i); //Get the load at position i
 	double getDuration(); //Get the route's total duration
