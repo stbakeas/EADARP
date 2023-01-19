@@ -19,16 +19,15 @@ void Solution::addRoute(Route r)
     // In case we are updating the vehicle's route...
     if (routes.find(r.vehicle) != routes.end())
     {
-        objective_value[0] -= routes[r.vehicle].user_inconvenience;
-        objective_value[1] -= routes[r.vehicle].owner_inconvenience;
-        objective_value[2]-= routes[r.vehicle].charging_cost-routes[r.vehicle].earnings;
+        for (auto objective : inst.objectives) {
+            objective_value[static_cast<int>(objective)] -= routes[r.vehicle].cost[static_cast<int>(objective)];
+        } 
     }
-    objective_value[0] += r.user_inconvenience;
-    if (objective_value[0] > inst.nadir[0]) inst.nadir[0] = objective_value[0];
-    objective_value[1] += r.owner_inconvenience;
-    if (objective_value[1] > inst.nadir[1]) inst.nadir[1] = objective_value[1];
-    objective_value[2] += r.charging_cost - r.earnings;
-    if (objective_value[2] > inst.nadir[2]) inst.nadir[2] = objective_value[2];
+    for (auto objective : inst.objectives) {
+        objective_value[static_cast<int>(objective)] += r.cost[static_cast<int>(objective)];
+        if (objective_value[static_cast<int>(objective)] > inst.nadir[static_cast<int>(objective)]) 
+            inst.nadir[static_cast<int>(objective)] = objective_value[static_cast<int>(objective)];
+    }
     routes[r.vehicle] = r;
 }
 

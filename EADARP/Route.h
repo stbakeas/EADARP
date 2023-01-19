@@ -33,10 +33,7 @@ public:
 	std::unordered_map<CStation*, bool> assigned_cs;
 	std::vector<std::pair<int, int>> natural_sequences;
 
-	double charging_cost;
-	double user_inconvenience;
-	double owner_inconvenience;
-	double earnings;
+	double cost[3];
 
 	Route() {};
 	Route(EAV* vehicle);

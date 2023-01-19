@@ -287,10 +287,7 @@ void Route::computeMaximumLoadBetween(int i, int j) {
 
 void Route::computeTotalCost() {
     int n = path.size();
-    user_inconvenience = 0.0;
-    owner_inconvenience = 0.0;
-    charging_cost = 0.0;
-    earnings = 0.0;
+    for (auto objective : inst.objectives) cost[static_cast<int>(objective)] = 0.0;
 
     for (int i = 1; i < n-1; i++) {
         if (loads[i] > vehicle->capacity) {
@@ -303,13 +300,13 @@ void Route::computeTotalCost() {
         }
         if (path.at(i)->isChargingStation()) {
             CStation* cs = inst.getChargingStation(path.at(i));
-            charging_cost += charging_times[cs] * cs->recharge_cost;
+            cost[static_cast<int>(Instance::Objective::System)] += charging_times[cs] * cs->recharge_cost;
         }
-        user_inconvenience += std::max(0.0, start_of_service_times.at(i) - path.at(i)->latest) +
+        cost[static_cast<int>(Instance::Objective::User)] += std::max(0.0, start_of_service_times.at(i) - path.at(i)->latest) +
             std::max(0.0, ride_times.at(i) - path.at(i)->maximum_travel_time);
     }
 
-    for (Request* r : requests) earnings += r->reward;
+    for (Request* r : requests)  cost[static_cast<int>(Instance::Objective::System)] -= r->reward;
 
     if (loads.back() > vehicle->capacity) {
         capacityFeasible = false;
@@ -320,7 +317,7 @@ void Route::computeTotalCost() {
         return;
     }
     
-    owner_inconvenience += std::max(0.0, ceil(vehicle->battery_return_percentage * vehicle->battery - battery.back())) +
+    cost[static_cast<int>(Instance::Objective::Owner)] += std::max(0.0, ceil(vehicle->battery_return_percentage * vehicle->battery - battery.back())) +
                            std::max(0.0, arrival_times.back() - path.back()->latest);
 }
 
