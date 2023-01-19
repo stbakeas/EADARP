@@ -29,9 +29,7 @@ public:
 	std::unordered_map<EAV*, Route> routes;
 	std::vector<Request*> rejected;
 	std::vector<std::pair<Request*, EAV*>> removed;
-	float weights[static_cast<int>(Instance::Objective::NumberOfObjectives)] = { 0.33,0.33,0.33 };
 	double objective_value[static_cast<int>(Instance::Objective::NumberOfObjectives)];
-	void SetWeights(std::vector<float> values);
 
 	/**
 	 * Add (or update) the route traversed by vehicle of route `r`.

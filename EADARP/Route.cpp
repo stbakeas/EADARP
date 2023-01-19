@@ -17,7 +17,7 @@ Route::Route(EAV* vehicle) {
         assigned_cs[s] = false;
     }
     policy = ChargingPolicy::MINIMAL;
-    adaptiveCharging = false;
+    adaptiveCharging = true;
 }
 
 double Route::getEarliestTime(int i) {
@@ -188,7 +188,7 @@ void Route::updateMetrics() {
         if (adaptiveCharging) computeChargingTime(i);
         if (path[i]->isOrigin()) requests.push_back(inst.getRequest(path[i]));
     }
-    if (adaptiveCharging) LazyScheduling();
+    if (adaptiveCharging) BasicScheduling();
     storeNaturalSequences();
     computeTotalCost();
 }
@@ -411,7 +411,7 @@ void Route::computeChargingTime(int nodePosition) {
         if (policy == ChargingPolicy::FULL)  desired_amount = vehicle->battery;
         else {
             //Calculate the fuel to be added in order to reach a charging station or the ending depot.
-            double fuel_needed = 0;
+            double fuel_needed = 0.0;
             Node* current_node = path.at(nodePosition);
             for (size_t x = nodePosition + 1; x < path.size(); x++) {
                 fuel_needed += inst.getFuelConsumption(current_node, path.at(x));

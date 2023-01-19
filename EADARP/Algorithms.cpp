@@ -80,7 +80,7 @@ namespace algorithms {
 		Solution incumbent = run.best=run.init;
 		int iter = 0;
 		while (iter<max_iterations) {
-			Solution s =Destroy(incumbent, 0.1, 5,Instance::Objective::NumberOfObjectives);
+			Solution s =Destroy(incumbent, 0.1, 7,Instance::Objective::NumberOfObjectives);
 			s = Repair(s, Instance::Objective::NumberOfObjectives);
 			double before = s.AchievementFunction(0.3);
 			for (Move move : intraRouteSequence) s = move(s, NeighborChoice::BEST);
@@ -180,11 +180,9 @@ namespace algorithms {
 			std::vector<Position> batset;
 			std::vector<Position> capset;
 			for (EAV* v : available_vehicles) {
-				if (r->forbidden_vehicles[user].contains(v->id) &&
-				    r->percentages[user][r->forbidden_vehicles[user][v->id]] < std::min(1.0f,3*current_solution.weights[user]))
+				if (r->forbidden_vehicles[user].contains(v->id))
 						continue;
-				if (r->forbidden_vehicles[owner].contains(v->id)
-					&& r->percentages[owner][r->forbidden_vehicles[owner][v->id]] < std::min(1.0f, 3*current_solution.weights[owner]))
+				if (r->forbidden_vehicles[owner].contains(v->id))
 						continue;
 				bool batteryNotFound = true;
 				size_t length = current_solution.routes[v].path.size();
@@ -300,9 +298,8 @@ namespace algorithms {
 			return inst.getTravelTime(a->origin,b->origin) + inst.getTravelTime(a->destination,b->destination);
 		}
 		
-		Solution Init1(int weights) {
+		Solution Init1() {
 			Solution solution;	
-			if (weights>=0) solution.SetWeights(inst.weight_combinations[weights]);
 			std::random_device rd;
 			RandLib randlib(rd());
 			auto start = std::chrono::steady_clock::now();
@@ -322,7 +319,6 @@ namespace algorithms {
 
 		Solution H1(int iter) {
             Solution solution;
-			solution.SetWeights(inst.weight_combinations[iter]);
 			std::random_device rd;
 			RandLib randlib(rd());
 			solution.AddDepots();

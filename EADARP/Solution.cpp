@@ -14,12 +14,6 @@ float float_one_point_round(float value)
     return ((float)((int)(value * 10))) / 10;
 }
 
-void Solution::SetWeights(std::vector<float> values) {
-    weights[0] = values[0];
-    weights[1] = values[1];
-    weights[2] = values[2];
-}
-
 void Solution::addRoute(Route r)
 {
     // In case we are updating the vehicle's route...
@@ -27,7 +21,7 @@ void Solution::addRoute(Route r)
     {
         objective_value[0] -= routes[r.vehicle].user_inconvenience;
         objective_value[1] -= routes[r.vehicle].owner_inconvenience;
-        objective_value[2] = objective_value[2]-(routes[r.vehicle].charging_cost-routes[r.vehicle].earnings);
+        objective_value[2]-= routes[r.vehicle].charging_cost-routes[r.vehicle].earnings;
     }
     objective_value[0] += r.user_inconvenience;
     if (objective_value[0] > inst.nadir[0]) inst.nadir[0] = objective_value[0];
@@ -160,7 +154,7 @@ double Solution::AchievementFunction(double rho) {
     double first_scale;
     for (size_t i = 0; i < 3; i++) { 
         deviations.push_back(objective_value[i] - inst.ideal[i]);
-        first_scale = weights[i] * deviations[i] / (inst.nadir[i] - inst.ideal[i]);
+        first_scale = deviations[i] / (inst.nadir[i] - inst.ideal[i]);
         if (i == 0) maxValue = first_scale;
         else if (first_scale > maxValue) maxValue = first_scale;
     }
@@ -168,15 +162,15 @@ double Solution::AchievementFunction(double rho) {
 }
 
 double Solution::WeightedSum() {
-    double sum = 0;
+    double sum = 0.0;
     for (auto objective : inst.objectives) {
-        sum += weights[static_cast<int>(objective)] * objective_value[static_cast<int>(objective)];
+        sum += objective_value[static_cast<int>(objective)];
     }
     return sum;
 }
 
 double Solution::distanceFrom(Solution s, bool objectiveSpace) {
-    double distance = 0;
+    double distance = 0.0;
     if (objectiveSpace) {
         for (int i = 0; i < 3; i++) distance += abs(objective_value[i] - s.objective_value[i]);
     }
