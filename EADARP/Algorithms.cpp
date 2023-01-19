@@ -78,13 +78,10 @@ namespace algorithms {
 		run.init = initial;
 		std::cout << "Running ILS..." << std::endl;
 		Solution incumbent = run.best=run.init;
-		if (incumbent.objective_value[0] > inst.nadir[0]) inst.nadir[0] = incumbent.objective_value[0];
 		int iter = 0;
 		while (iter<max_iterations) {
 			Solution s =Destroy(incumbent, 0.1, 5,Instance::Objective::NumberOfObjectives);
-			if (s.objective_value[0] > inst.nadir[0]) inst.nadir[0] = s.objective_value[0];
 			s = Repair(s, Instance::Objective::NumberOfObjectives);
-			if (s.objective_value[0] > inst.nadir[0]) inst.nadir[0] = s.objective_value[0];
 			double before = s.AchievementFunction(0.3);
 			for (Move move : intraRouteSequence) s = move(s, NeighborChoice::BEST);
 			double after = s.AchievementFunction(0.3);
@@ -316,7 +313,6 @@ namespace algorithms {
 				Route inserted_route = PairInsertion(request, solution, inst.vehicles,Instance::Objective::NumberOfObjectives,true);
 				if (inserted_route.isFeasible()) solution.addRoute(inserted_route);
 				else solution.rejected.push_back(request); 
-				if (solution.objective_value[0] > inst.nadir[0]) inst.nadir[0] = solution.objective_value[0];
 			}
 			auto finish = std::chrono::steady_clock::now();
 			double elapsed = std::chrono::duration_cast<std::chrono::seconds>(finish - start).count();

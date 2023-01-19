@@ -146,7 +146,7 @@ void Instance::RandomInit(int request_num, int vehicles_num, int stations_num, i
     createDistanceMatrix();
     for (Request* r : requests) { 
         r->reward = getTravelTime(r->origin, r->destination); 
-        ideal[2] -= r->reward;
+        ideal[static_cast<int>(Objective::System)] -= r->reward;
     }
     Preprocessing();
 }
@@ -157,7 +157,10 @@ void Instance::loadFromFile(const std::string instance_file_name, int seed) {
     maximumBattery = 14.85;
     returnedBatteryPercentage = 0.4;
     maxDistance = sqrt(2 * pow(abs(-10) + abs(10), 2));
-    for (size_t i = 0; i < 3; i++) ideal[i] = 0.0;
+    for (size_t i = 0; i < static_cast<int>(Objective::NumberOfObjectives); i++) {
+        ideal[i] = 0.0;
+        nadir[i] = 1.0;
+    }
     RandLib randlib(seed);
     std::ifstream file(instance_file_name);
 
@@ -295,11 +298,10 @@ void Instance::loadFromFile(const std::string instance_file_name, int seed) {
         charging_stations.push_back(new CStation(2 * requests_num + 2 * vehicles_num + i, node3->recharge_rate, node3->recharge_cost));
     }
 
-    computeNadirPoints();
     createDistanceMatrix();
     for (Request* r : requests) {
         r->reward = getTravelTime(r->origin, r->destination);
-        ideal[2] -= r->reward;
+        ideal[static_cast<int>(Objective::System)] -= r->reward;
     }
     Preprocessing();
 }

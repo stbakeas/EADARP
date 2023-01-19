@@ -30,8 +30,11 @@ void Solution::addRoute(Route r)
         objective_value[2] = objective_value[2]-(routes[r.vehicle].charging_cost-routes[r.vehicle].earnings);
     }
     objective_value[0] += r.user_inconvenience;
+    if (objective_value[0] > inst.nadir[0]) inst.nadir[0] = objective_value[0];
     objective_value[1] += r.owner_inconvenience;
+    if (objective_value[1] > inst.nadir[1]) inst.nadir[1] = objective_value[1];
     objective_value[2] += r.charging_cost - r.earnings;
+    if (objective_value[2] > inst.nadir[2]) inst.nadir[2] = objective_value[2];
     routes[r.vehicle] = r;
 }
 
