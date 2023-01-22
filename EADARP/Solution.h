@@ -30,6 +30,8 @@ public:
 	std::vector<Request*> rejected;
 	std::vector<std::pair<Request*, EAV*>> removed;
 	double objective_value[static_cast<int>(Instance::Objective::NumberOfObjectives)];
+	float weights[static_cast<int>(Instance::Objective::NumberOfObjectives)] = { 0.33,0.33,0.33 };
+	void SetWeights(const std::vector<float>& values);
 
 	/**
 	 * Add (or update) the route traversed by vehicle of route `r`.
@@ -71,7 +73,7 @@ public:
 	/*
 	* Function to compare two solutions
 	*/
-	double AchievementFunction(double rho);
+	double AugmentedTchebycheff(const double& rho);
 
 	double WeightedSum();
 

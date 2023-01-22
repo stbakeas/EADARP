@@ -14,6 +14,12 @@ float float_one_point_round(float value)
     return ((float)((int)(value * 10))) / 10;
 }
 
+void Solution::SetWeights(const std::vector<float>& values) {
+    weights[0] = values[0];
+    weights[1] = values[1];
+    weights[2] = values[2];
+}
+
 void Solution::addRoute(Route r)
 {
     // In case we are updating the vehicle's route...
@@ -54,7 +60,7 @@ void Solution::Display(int i) {
         }
     }
     else if (i == 1) {
-        std::cout << AchievementFunction(0.3) << std::endl;
+        std::cout << AugmentedTchebycheff(0.3) << std::endl;
     }
     else {
         std::cout << "(";
@@ -147,23 +153,26 @@ void Solution::FixHardConstraints() {
     }
 }
 
-double Solution::AchievementFunction(double rho) {
+double Solution::AugmentedTchebycheff(const double& rho) {
     std::vector<double> deviations;
-    double maxValue;
+    double maxValue = 0.0;
+    double augmentation = 0.0;
     double first_scale;
     for (size_t i = 0; i < 3; i++) { 
         deviations.push_back(objective_value[i] - inst.ideal[i]);
-        first_scale = deviations[i] / (inst.nadir[i] - inst.ideal[i]);
-        if (i == 0) maxValue = first_scale;
-        else if (first_scale > maxValue) maxValue = first_scale;
+        first_scale = weights[i] * deviations[i];
+        augmentation += first_scale;
+        if (first_scale > maxValue) maxValue = first_scale;
     }
-    return maxValue+rho * std::accumulate(deviations.begin(), deviations.end(), 0.0);
+    return maxValue + rho * augmentation;
 }
 
 double Solution::WeightedSum() {
     double sum = 0.0;
     for (auto objective : inst.objectives) {
-        sum += objective_value[static_cast<int>(objective)];
+        sum += weights[static_cast<int>(objective)] * (objective_value[static_cast<int>(objective)] - inst.ideal[static_cast<int>(objective)])
+            / (inst.nadir[static_cast<int>(objective)] - inst.ideal[static_cast<int>(objective)]);
+            
     }
     return sum;
 }
@@ -219,7 +228,7 @@ double Solution::getInsertionCost(Request* r, Position p, Instance::Objective ob
         break;
     }
     default: {
-        current_cost = AchievementFunction(0.3);
+        current_cost = AugmentedTchebycheff(0.3);
         old_route = routes[p.vehicle];
         test_route = old_route;
         if (p.charging_station != nullptr) {
@@ -228,7 +237,7 @@ double Solution::getInsertionCost(Request* r, Position p, Instance::Objective ob
         test_route.insertRequest(r, p.origin_pos + 1, p.dest_pos + 1);
         test_route.updateMetrics();
         addRoute(test_route);
-        new_cost = AchievementFunction(0.3);
+        new_cost = AugmentedTchebycheff(0.3);
         cost = new_cost - current_cost;
         addRoute(old_route);
     }
