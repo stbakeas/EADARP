@@ -19,7 +19,7 @@ namespace algorithms
 
 	Run DeterministicAnnealing(Solution initial, int Nb_iter, int T_max, int T_red, int n_imp);
 
-	bool SimulatedAnnealingAcceptanceCriterion(Solution candidate, Solution incumbent, int current_temperature);
+	bool SimulatedAnnealingAcceptanceCriterion(const Solution& candidate,const Solution& incumbent, int current_temperature);
 
     namespace details
     {
@@ -47,12 +47,6 @@ namespace algorithms
         * Parallel Insertion Heuristic proposed by Yue Su, Nicolas Dupin, Jakob Puchinger
         */
         Solution Init2();
-
-		/**
-		* First,selects seed request according to battery and time feasibility criteria.
-		* Proceeds with simple greedy.
-		*/
-		Solution Init3(int iter,bool sortBasedOnShiftDuration);
 
 		/*
 		* Sequential Insertion Heuristic based on ascending order of shift duration.

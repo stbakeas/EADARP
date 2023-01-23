@@ -157,7 +157,7 @@ void Solution::FixHardConstraints() {
     }
 }
 
-double Solution::AugmentedTchebycheff(const double& rho) {
+double Solution::AugmentedTchebycheff(const double& rho) const {
     std::vector<double> deviations(3);
     double maxValue = 0.0;
     double augmentation = 0.0;

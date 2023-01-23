@@ -21,7 +21,7 @@ namespace algorithms {
 
 	typedef std::pair<Request*, EAV*> Assignment; 
 
-	bool SimulatedAnnealingAcceptanceCriterion(Solution candidate, Solution incumbent, int current_temperature) {
+	bool SimulatedAnnealingAcceptanceCriterion(const Solution& candidate,const Solution& incumbent, int current_temperature) {
 		std::random_device rd;
 		RandLib randlib(rd());
 		double diff = incumbent.AugmentedTchebycheff(0.3) - candidate.AugmentedTchebycheff(0.3);
@@ -875,7 +875,7 @@ namespace algorithms {
 				}
 				s=best;
 			}
-			return best;
+			return s;
 		}
 
 		Solution exchangeDestination(Solution s, NeighborChoice strategy) {
@@ -1094,9 +1094,7 @@ namespace algorithms {
 			}
 			s.removed.clear();
 			return s;
-		}
-
-		
+		}	
 	}
 }
 

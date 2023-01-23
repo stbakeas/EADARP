@@ -73,7 +73,7 @@ public:
 	/*
 	* Function to compare two solutions
 	*/
-	double AugmentedTchebycheff(const double& rho);
+	double AugmentedTchebycheff(const double& rho) const;
 
 	double WeightedSum();
 
