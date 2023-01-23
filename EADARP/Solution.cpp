@@ -7,6 +7,8 @@
 
 Solution::Solution(){
     for (size_t i = 0; i < 3; i++) objective_value[i] = 0.0;
+    rejected.reserve(inst.requests.size());
+    removed.reserve(inst.requests.size()/2);
 }
 
 float float_one_point_round(float value)
@@ -60,7 +62,7 @@ void Solution::Display(int i) {
         }
     }
     else if (i == 1) {
-        std::cout << AugmentedTchebycheff(0.3) << std::endl;
+        std::cout << AugmentedTchebycheff(0.3) << "\n";
     }
     else {
         std::cout << "(";
@@ -84,6 +86,7 @@ void Solution::AddDepots()
 void Solution::FixHardConstraints() {
     for (EAV* v:inst.vehicles) {
         std::vector<Request*> removalPool;
+        removalPool.reserve(routes[v].path.size() - 2);
         while (!routes[v].capacityFeasible) {
             for (size_t i = 0; i < routes[v].path.size(); i++)
             {
@@ -125,6 +128,7 @@ void Solution::FixHardConstraints() {
         }
         if (!routes[v].batteryFeasible) {
             std::vector<int> zero_load_nodes;
+            zero_load_nodes.reserve(routes[v].path.size() / 2);
             for (size_t i = 0; i < routes[v].battery.size()-1; i++)
             {
                 if (routes[v].battery[i] >= 0 && !routes[v].loads[i]) zero_load_nodes.push_back(i);
@@ -154,12 +158,12 @@ void Solution::FixHardConstraints() {
 }
 
 double Solution::AugmentedTchebycheff(const double& rho) {
-    std::vector<double> deviations;
+    std::vector<double> deviations(3);
     double maxValue = 0.0;
     double augmentation = 0.0;
     double first_scale;
     for (size_t i = 0; i < 3; i++) { 
-        deviations.push_back(objective_value[i] - inst.ideal[i]);
+        deviations[i]=objective_value[i] - inst.ideal[i];
         first_scale = weights[i] * deviations[i];
         augmentation += first_scale;
         if (first_scale > maxValue) maxValue = first_scale;

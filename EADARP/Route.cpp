@@ -456,6 +456,7 @@ CStation* Route::findBestChargingStationAfter(int i) {
     //Find all the reachable stations from the zero-load node
     Node* zero_load_node = path.at(i);
     std::vector<CStation*> reachable_stations;
+    reachable_stations.reserve(inst.charging_stations.size());
     for (CStation* s : inst.charging_stations) {
         if (!assigned_cs[s]) {
             if (battery.at(i) -

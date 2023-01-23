@@ -56,7 +56,7 @@ namespace algorithms {
 				}
 			}
 			run.updateArchive();
-			std::cout << iter << std::endl;
+			std::cout << iter << "\n";
 			auto finish = std::chrono::steady_clock::now();
 			double elapsed = std::chrono::duration_cast<std::chrono::seconds>(finish - start).count();
 			run.elapsed_seconds = elapsed;
@@ -76,7 +76,7 @@ namespace algorithms {
 		Run run;
 		auto start = std::chrono::steady_clock::now();
 		run.init = initial;
-		std::cout << "Running ILS..." << std::endl;
+		std::cout << "Running ILS..." << "\n";
 		Solution incumbent = run.best=run.init;
 		int iter = 0;
 		while (iter<max_iterations) {
@@ -98,7 +98,7 @@ namespace algorithms {
 				incumbent = s;
 			}
 			iter++;
-			std::cout << iter << std::endl;
+			std::cout << iter << "\n";
 			if (iter > statistics[1]) statistics[1] = iter;
 			auto finish = std::chrono::steady_clock::now();
 			double elapsed = std::chrono::duration_cast<std::chrono::seconds>(finish - start).count();
@@ -122,7 +122,7 @@ namespace algorithms {
 		std::random_device rd;
 		RandLib randlib(rd());
 		int threshold = T_max;
-		std::cout << threshold << std::endl;
+		std::cout << threshold << "\n";
 		int i_imp = 0;
 		run.init = initial;
 		run.best = run.init;
@@ -177,8 +177,16 @@ namespace algorithms {
 			Route empty_route;
 			empty_route.batteryFeasible = false;
 			empty_route.capacityFeasible = false;
+
+			//Reserve size for feasible position vectors
+			int vehicle_index = randlib.randint(0, available_vehicles.size() - 1);
+			int example_route_size = s.routes[available_vehicles[vehicle_index]].path.size();
+			int reserve_size = available_vehicles.size() * example_route_size * (example_route_size - 1) / 2;
+
 			std::vector<Position> batset;
+			batset.reserve(reserve_size);
 			std::vector<Position> capset;
+			capset.reserve(reserve_size);
 			for (EAV* v : available_vehicles) {
 				if (r->forbidden_vehicles[user].contains(v->id) &&
 					r->percentages[user][r->forbidden_vehicles[user][v->id]] < std::min(1.0f, 3 * current_solution.weights[user]))
@@ -221,6 +229,7 @@ namespace algorithms {
 				if (batteryNotFound && includeCS) {
 					bool positionFound = false;
 					std::vector<size_t> zero_load_positions;
+					zero_load_positions.reserve(current_solution.routes[v].path.size()/2);
 					for (size_t i = current_solution.routes[v].path.size() - 2; i>0; i--)
 					{
 
@@ -315,7 +324,7 @@ namespace algorithms {
 			}
 			auto finish = std::chrono::steady_clock::now();
 			double elapsed = std::chrono::duration_cast<std::chrono::seconds>(finish - start).count();
-			std::cout << elapsed << std::endl;
+			std::cout << elapsed << "\n";
 			return solution;
 		}
 

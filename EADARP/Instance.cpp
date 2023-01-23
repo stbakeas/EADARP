@@ -38,6 +38,11 @@ void Instance::RandomInit(int request_num, int vehicles_num, int stations_num, i
     maxDistance = sqrt(2 *pow(abs(max_latitude)+abs(max_longitude),2));
     returnedBatteryPercentage = 0.4;
 
+    requests.reserve(request_num);
+    vehicles.reserve(vehicles_num);
+    charging_stations.reserve(stations_num);
+    nodes.reserve(2 * request_num + 2 * vehicles_num + stations_num);
+
     for (size_t i = 0; i< 3; i++) ideal[i] = 0.0;
     //Create and add requests
     for (int i = 1; i <= request_num; i++)
@@ -155,7 +160,7 @@ void Instance::loadFromFile(const std::string instance_file_name, int seed) {
     Horizon = 1440;
     dischargeRate = 0.055;
     maximumBattery = 14.85;
-    returnedBatteryPercentage = 0.4;
+    returnedBatteryPercentage = 0.1;
     maxDistance = sqrt(2 * pow(abs(-10) + abs(10), 2));
     for (size_t i = 0; i < static_cast<int>(Objective::NumberOfObjectives); i++) {
         ideal[i] = 0.0;
@@ -173,7 +178,16 @@ void Instance::loadFromFile(const std::string instance_file_name, int seed) {
     int vehicles_num, requests_num;
 
     file >> vehicles_num;
+    vehicles.reserve(vehicles_num);
+
     file >> requests_num;
+    requests.reserve(requests_num);
+
+    int stations_num;
+    std::cout << "Enter number of charging stations: ";
+    std::cin >> stations_num;
+
+    nodes.reserve(2 * requests_num + 2 * vehicles_num + stations_num);
 
 
     int max_route_duration;
@@ -278,8 +292,6 @@ void Instance::loadFromFile(const std::string instance_file_name, int seed) {
             nodes.at(i)->latest < inst.Horizon?Request::Direction::INBOUND:Request::Direction::OUTBOUND));
     }
 
-
-    int stations_num = 5;
     //Create and add charging stations
     for (int i = 1; i <= stations_num; i++)
     {
