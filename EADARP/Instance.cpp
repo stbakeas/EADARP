@@ -261,7 +261,7 @@ void Instance::loadFromFile(const std::string instance_file_name, int seed) {
             file >> node->service_duration;
             file >> node->maximum_travel_time;
             std::vector<int> loads(4);
-            for (int i = 0; i < loads.size(); i++) file >> loads.at(i);
+            for (int i = 0; i < loads.size(); i++) file >> loads[i];
             node->load = std::accumulate(loads.begin(), loads.end(), 0.0);
 
             file >> node->earliest;
@@ -286,10 +286,10 @@ void Instance::loadFromFile(const std::string instance_file_name, int seed) {
 
     // Add all requests
     for (int i = 0; i < requests_num; i++){
-        nodes.at(requests_num + i)->maximum_travel_time = nodes.at(i)->maximum_travel_time;
-        nodes.at(i)->maximum_travel_time = DBL_MAX;
-        requests.push_back(new Request(nodes.at(i), nodes.at(requests_num + i),
-            nodes.at(i)->latest < inst.Horizon?Request::Direction::INBOUND:Request::Direction::OUTBOUND));
+        nodes[requests_num + i]->maximum_travel_time = nodes[i]->maximum_travel_time;
+        nodes[i]->maximum_travel_time = DBL_MAX;
+        requests.push_back(new Request(nodes[i], nodes[requests_num + i],
+            nodes[i]->latest < inst.Horizon?Request::Direction::INBOUND:Request::Direction::OUTBOUND));
     }
 
     //Create and add charging stations
@@ -451,13 +451,13 @@ Request* Instance::getRequest(Node* node)
 }
 
 CStation* Instance::getChargingStation(Node* node) {
-    return charging_stations.at(node->id-2*requests.size()-2*vehicles.size()-1);
+    return charging_stations[node->id-2*requests.size()-2*vehicles.size()-1];
 }
 
 Node* Instance::getDepot(EAV* vehicle,std::string start_or_end)
 {
-    if (start_or_end == "start") return nodes.at(vehicle->id-1);
-    else return nodes.at(vehicles.size()+vehicle->id-1);
+    if (start_or_end == "start") return nodes[vehicle->id-1];
+    else return nodes[vehicles.size()+vehicle->id-1];
 }
 
 double Instance::getTravelTime(Node* n1, Node* n2)

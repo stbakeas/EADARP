@@ -34,7 +34,6 @@ namespace algorithms {
 
 	Run MDIG(std::vector<Solution> initPop, int max_iterations, int max_seconds)
 	{
-		std::vector<Move> intraRouteSequence = { exchangeOrigin,exchangeDestination,exchangeConsecutive,moveStation };
 		std::random_device rd;
 		RandLib randlib(rd());
 		Run run;
@@ -67,7 +66,6 @@ namespace algorithms {
 
 	Run IteratedGreedy(Solution initial,int max_iterations,int max_seconds)
 	{
-		std::vector<Move> intraRouteSequence = {exchangeOrigin,exchangeDestination,exchangeConsecutive,moveStation};
 		int T_init = 20;
 		int statistics[3] = { 0,0,0 };
 		double cooling_factor = 0.97;
@@ -83,7 +81,10 @@ namespace algorithms {
 			Solution s =Destroy(incumbent, 0.1, 7,Instance::Objective::NumberOfObjectives);
 			s = Repair(s, Instance::Objective::NumberOfObjectives);
 			double before = s.AugmentedTchebycheff(0.3);
-			for (Move move : intraRouteSequence) s = move(s, NeighborChoice::BEST);
+			exchangeOrigin(s, NeighborChoice::BEST);
+			exchangeDestination(s, NeighborChoice::BEST);
+			exchangeConsecutive(s, NeighborChoice::BEST);
+			moveStation(s, NeighborChoice::BEST);
 			double after = s.AugmentedTchebycheff(0.3);
 			if (after < before) statistics[2]++;
 			if (s.AugmentedTchebycheff(0.3) < incumbent.AugmentedTchebycheff(0.3)) {
@@ -118,7 +119,7 @@ namespace algorithms {
 	Run DeterministicAnnealing(Solution initial, int Nb_iter, int T_max,int T_red, int n_imp)
 	{
 		Run run;
-		std::vector<Move> neighborhoods = {exchangeOrigin,exchangeDestination,exchangeConsecutive,two_opt,swapRequest,relocate};
+		std::vector<Move> neighborhoods = {two_opt,swapRequest,relocate};
 		std::random_device rd;
 		RandLib randlib(rd());
 		int threshold = T_max;
@@ -168,12 +169,12 @@ namespace algorithms {
 
 	namespace details {
 
-		Route PairInsertion(Request* r, Solution s, std::vector<EAV*> available_vehicles,Instance::Objective objective,bool includeCS) {
+		Route PairInsertion(Request* r,Solution s, std::vector<EAV*> available_vehicles,Instance::Objective objective,bool includeCS) {
 			std::random_device rd;
 			int user = static_cast<int>(Instance::Objective::User);
 			int owner = static_cast<int>(Instance::Objective::Owner);
 			RandLib randlib(rd());
-			Solution current_solution = s;
+			
 			Route empty_route;
 			empty_route.batteryFeasible = false;
 			empty_route.capacityFeasible = false;
@@ -189,37 +190,37 @@ namespace algorithms {
 			capset.reserve(reserve_size);
 			for (EAV* v : available_vehicles) {
 				if (r->forbidden_vehicles[user].contains(v->id) &&
-					r->percentages[user][r->forbidden_vehicles[user][v->id]] < std::min(1.0f, 3 * current_solution.weights[user]))
+					r->percentages[user][r->forbidden_vehicles[user][v->id]] < std::min(1.0f, 3 * s.weights[user]))
 						continue;
 				if (r->forbidden_vehicles[owner].contains(v->id) &&
-					r->percentages[owner][r->forbidden_vehicles[owner][v->id]] < std::min(1.0f, 3 * current_solution.weights[owner]))
+					r->percentages[owner][r->forbidden_vehicles[owner][v->id]] < std::min(1.0f, 3 *s.weights[owner]))
 						continue;
 				bool batteryNotFound = true;
-				size_t length = current_solution.routes[v].path.size();
+				size_t length = s.routes[v].path.size();
 				for (size_t i = 0; i < length-1; ++i)
 				{
-					if (inst.isForbiddenArc(current_solution.routes[v].path.at(i), r->origin)) continue;
+					if (inst.isForbiddenArc(s.routes[v].path[i], r->origin)) continue;
 					for (size_t j = i; j < length-1; ++j)
 					{
 						
 						if (i == j) {
-							if (inst.isForbiddenArc(r->destination, current_solution.routes[v].path.at(i + 1)))
+							if (inst.isForbiddenArc(r->destination, s.routes[v].path[i + 1]))
 								continue;
 						}
 						else {
-							if (inst.isForbiddenArc(r->origin, current_solution.routes[v].path.at(i + 1))) break;
-							if (inst.isForbiddenArc(r->destination, current_solution.routes[v].path.at(j + 1)) ||
-								inst.isForbiddenArc(current_solution.routes[v].path.at(j),r->destination))
+							if (inst.isForbiddenArc(r->origin, s.routes[v].path[i + 1])) break;
+							if (inst.isForbiddenArc(r->destination, s.routes[v].path[j + 1]) ||
+								inst.isForbiddenArc(s.routes[v].path[j],r->destination))
 								continue;
 							
 						}
-						double added_distance = current_solution.routes[v].getAddedDistance(r, i, j);
-						if (current_solution.routes[v].batteryFeasibilityTest(r, i, j))
+						double added_distance = s.routes[v].getAddedDistance(r, i, j);
+						if (s.routes[v].batteryFeasibilityTest(r, i, j))
 						{
 							batset.emplace_back(v, i, j, nullptr, -1);
 							batset.back().setAddedDistance(added_distance);
 							batteryNotFound = false;
-							if (current_solution.routes[v].isInsertionCapacityFeasible(r, i, j)) {
+							if (s.routes[v].isInsertionCapacityFeasible(r, i, j)) {
 								capset.emplace_back(v, i, j, nullptr, -1);
 								capset.back().setAddedDistance(added_distance);
 							}
@@ -227,47 +228,48 @@ namespace algorithms {
 					}
 				}
 				if (batteryNotFound && includeCS) {
+					
 					bool positionFound = false;
 					std::vector<size_t> zero_load_positions;
-					zero_load_positions.reserve(current_solution.routes[v].path.size()/2);
-					for (size_t i = current_solution.routes[v].path.size() - 2; i>0; i--)
+					zero_load_positions.reserve(s.routes[v].path.size()/2);
+					for (size_t i = s.routes[v].path.size() - 2; i>0; i--)
 					{
 
-						if (current_solution.routes[v].loads.at(i) == 0) { 
+						if (s.routes[v].loads[i] == 0) { 
 							zero_load_positions.push_back(i);
 						}
 					}
 					//Try inserting a charging station after zero-load nodes and then rescan the solution
 					for (size_t pos : zero_load_positions) {
-						CStation* min_s = current_solution.routes[v].findBestChargingStationAfter(pos);
+						CStation* min_s = s.routes[v].findBestChargingStationAfter(pos);
 						if (min_s != nullptr) {
-							Node* cs_node = inst.nodes.at(min_s->id - 1);
-							double stationAddedDistance = current_solution.routes[v].getAddedDistance(cs_node, pos);
-							current_solution.routes[v].insertNode(cs_node, pos+1);
-							current_solution.routes[v].updateMetrics();
-							length = current_solution.routes[v].path.size();
+							Node* cs_node = inst.nodes[min_s->id - 1];
+							double stationAddedDistance = s.routes[v].getAddedDistance(cs_node, pos);
+							s.routes[v].insertNode(cs_node, pos+1);
+							s.routes[v].updateMetrics();
+							length = s.routes[v].path.size();
 							for (size_t i = 0; i < length-1; ++i)
 							{
-								if (inst.isForbiddenArc(current_solution.routes[v].path.at(i), r->origin)) continue;
+								if (inst.isForbiddenArc(s.routes[v].path[i], r->origin)) continue;
 								for (size_t j = i; j < length-1; ++j)
 								{
 									
 									if (i == j) {
-										if (inst.isForbiddenArc(r->destination, current_solution.routes[v].path.at(i + 1)))
+										if (inst.isForbiddenArc(r->destination, s.routes[v].path[i + 1]))
 											continue;
 									}
 									else {
-										if (inst.isForbiddenArc(r->origin, current_solution.routes[v].path.at(i + 1))) break;
-										if (inst.isForbiddenArc(r->destination, current_solution.routes[v].path.at(j + 1)) ||
-											inst.isForbiddenArc(current_solution.routes[v].path.at(j), r->destination))
+										if (inst.isForbiddenArc(r->origin, s.routes[v].path[i + 1])) break;
+										if (inst.isForbiddenArc(r->destination, s.routes[v].path[j + 1]) ||
+											inst.isForbiddenArc(s.routes[v].path[j], r->destination))
 											continue;
 									}
-									double added_distance = current_solution.routes[v].getAddedDistance(r, i, j);
-									if (current_solution.routes[v].batteryFeasibilityTest(r, i, j))
+									double added_distance = s.routes[v].getAddedDistance(r, i, j);
+									if (s.routes[v].batteryFeasibilityTest(r, i, j))
 									{
 										batset.emplace_back(v, i, j, min_s, pos);
 										batset.back().setAddedDistance(stationAddedDistance + added_distance);
-										if (current_solution.routes[v].isInsertionCapacityFeasible(r, i, j)) {
+										if (s.routes[v].isInsertionCapacityFeasible(r, i, j)) {
 											capset.emplace_back(v, i, j, min_s, pos);
 											capset.back().setAddedDistance(stationAddedDistance + added_distance);
 											positionFound = true;
@@ -276,8 +278,8 @@ namespace algorithms {
 									}
 								}
 							}
-							current_solution.routes[v].removeNode(pos+1);
-							current_solution.routes[v].updateMetrics();
+							s.routes[v].removeNode(pos+1);
+							s.routes[v].updateMetrics();
 							if (positionFound) break;
 
 						}
@@ -289,18 +291,17 @@ namespace algorithms {
 				Position min_pos;
 				double min_cost=DBL_MAX;
 				for (std::vector<Position>::iterator st = capset.begin(); st != capset.end(); ++st) {
-					double cost = current_solution.getInsertionCost(r, *st,objective);
+					double cost = s.getInsertionCost(r, *st,objective);
 					if (cost < min_cost) {
 						min_cost = cost;
 						min_pos = *st;
 					}
 				}
 				if (min_cost > 1) return empty_route;
-				CStation* cs = min_pos.charging_station;
-				if (cs != nullptr) current_solution.routes[min_pos.vehicle].insertNode(inst.nodes.at(cs->id - 1), min_pos.cs_pos + 1);
-				current_solution.routes[min_pos.vehicle].insertRequest(r, min_pos.origin_pos + 1, min_pos.dest_pos + 1);
-				current_solution.routes[min_pos.vehicle].updateMetrics();
-				return current_solution.routes[min_pos.vehicle];
+				if (min_pos.charging_station != nullptr) s.routes[min_pos.vehicle].insertNode(inst.nodes[min_pos.charging_station->id - 1], min_pos.cs_pos + 1);
+				s.routes[min_pos.vehicle].insertRequest(r, min_pos.origin_pos + 1, min_pos.dest_pos + 1);
+				s.routes[min_pos.vehicle].updateMetrics();
+				return s.routes[min_pos.vehicle];
 			}
 
 		}
@@ -391,14 +392,14 @@ namespace algorithms {
 				Request* r = unassigned[i];
 				int index_of_random_vehicle = randlib.randint(0, inst.vehicles.size() - 1);
 				//Ensure that we have not inserted another request in the route, otherwise try again
-				if (solution.routes[inst.vehicles.at(index_of_random_vehicle)].hasNoRequests()) {
-					Route new_route = solution.routes[inst.vehicles.at(index_of_random_vehicle)];
+				if (solution.routes[inst.vehicles[index_of_random_vehicle]].hasNoRequests()) {
+					Route new_route = solution.routes[inst.vehicles[index_of_random_vehicle]];
 					new_route.insertRequest(r, 1, 1);
 					new_route.updateMetrics();
 					if (new_route.isFeasible()) {
 						solution.addRoute(new_route);
 						unassigned.erase(unassigned.begin()+i);
-						last_assigned_user[inst.vehicles.at(index_of_random_vehicle)] = r;
+						last_assigned_user[inst.vehicles[index_of_random_vehicle]] = r;
 					}
 					else i--;
 				}
@@ -459,17 +460,17 @@ namespace algorithms {
 					std::vector<Position> feasible;
 					for (size_t i = 0; i < solution.routes[v].path.size()-1; ++i)
 					{
-						if (inst.isForbiddenArc(solution.routes[v].path.at(i), r->origin)) continue;
+						if (inst.isForbiddenArc(solution.routes[v].path[i], r->origin)) continue;
 						for (size_t j = i; j < solution.routes[v].path.size()-1; ++j)
 						{
 							if (i == j) {
-								if (inst.isForbiddenArc(r->destination, solution.routes[v].path.at(i + 1)))
+								if (inst.isForbiddenArc(r->destination, solution.routes[v].path[i+1]))
 									continue;
 							}
 							else {
-								if (inst.isForbiddenArc(r->origin, solution.routes[v].path.at(i + 1))) break;
-								if (inst.isForbiddenArc(r->destination, solution.routes[v].path.at(j + 1)) ||
-									inst.isForbiddenArc(solution.routes[v].path.at(j), r->destination))
+								if (inst.isForbiddenArc(r->origin, solution.routes[v].path[i+1])) break;
+								if (inst.isForbiddenArc(r->destination, solution.routes[v].path[j + 1]) ||
+									inst.isForbiddenArc(solution.routes[v].path[j], r->destination))
 									continue;
 
 							}
@@ -513,7 +514,7 @@ namespace algorithms {
 			return solution;
 		}
 
-		Solution moveStation(Solution s,NeighborChoice strategy)
+		void moveStation(Solution& s,NeighborChoice strategy)
 		{
 				Solution best = s;
 				std::vector<EAV*> vehicles = inst.vehicles;
@@ -527,7 +528,7 @@ namespace algorithms {
 					for (CStation* cs : charging_stations) {
 
 						if (s.routes[v].assigned_cs[cs]) {
-							Node* cs_node = inst.nodes.at(cs->id - 1);
+							Node* cs_node = inst.nodes[cs->id - 1];
 							Route new_route = s.routes[v];
 							new_route.removeNode(new_route.node_indices[cs_node]);
 							new_route.updateMetrics();
@@ -540,9 +541,15 @@ namespace algorithms {
 									if (new_route.isFeasible()) {
 										Solution neighbor = s;
 										neighbor.addRoute(new_route);
-										if (strategy == NeighborChoice::RANDOM) return neighbor;
+										if (strategy == NeighborChoice::RANDOM) {
+											s = neighbor;
+											return;
+										}
 										if (neighbor.AugmentedTchebycheff(0.3) < best.AugmentedTchebycheff(0.3)) {
-											if (strategy == NeighborChoice::FIRST) return neighbor;
+											if (strategy == NeighborChoice::FIRST) {
+												s = neighbor;
+												return;
+											}
 											best = neighbor;
 										}
 									}
@@ -554,7 +561,6 @@ namespace algorithms {
 						s = best;
 					}
 				}
-				return s;
 		}
 
 		Solution two_opt(Solution s,NeighborChoice strategy) {
@@ -843,7 +849,7 @@ namespace algorithms {
 			return best;
 		}
 
-		Solution exchangeOrigin(Solution s, NeighborChoice strategy)
+		void exchangeOrigin(Solution& s, NeighborChoice strategy)
 		{
 			bool isRandom = strategy == NeighborChoice::RANDOM;
 			std::random_device rd;
@@ -861,24 +867,29 @@ namespace algorithms {
 						Route route = s.routes[v];
 						//Swap the two nodes
 						Node* intermediate = route.path[i];
-						route.path.at(i) = route.path.at(i + 1);
-						route.path.at(i + 1) = intermediate;
+						route.path[i] = route.path[i + 1];
+						route.path[i + 1] = intermediate;
 						route.updateMetrics();
 						Solution neighbor = s;
 						neighbor.addRoute(route);
-						if (isRandom) return neighbor;
+						if (isRandom) { 
+							s=neighbor; 
+							return;
+						}
 						if (route.isFeasible() && neighbor.AugmentedTchebycheff(0.3) < best.AugmentedTchebycheff(0.3)) {
-							if (strategy == NeighborChoice::FIRST) return neighbor;
+							if (strategy == NeighborChoice::FIRST) {
+								s = neighbor;
+								return;
+							}
 							best = neighbor;
 						}
 					}
 				}
 				s=best;
 			}
-			return s;
 		}
 
-		Solution exchangeDestination(Solution s, NeighborChoice strategy) {
+		void exchangeDestination(Solution& s, NeighborChoice strategy) {
 			bool isRandom = strategy == NeighborChoice::RANDOM;
 			std::random_device rd;
 			RandLib randlib(rd());
@@ -895,26 +906,31 @@ namespace algorithms {
 						Route route = s.routes[v];
 						//Swap the two nodes
 						Node* intermediate = route.path[i];
-						route.path.at(i) = route.path.at(i-1);
-						route.path.at(i-1) = intermediate;
+						route.path[i] = route.path[i-1];
+						route.path[i-1] = intermediate;
 						route.updateMetrics();
-						if (route.capacityFeasible) {
-							Solution neighbor = s;
-							neighbor.addRoute(route);
-							if (isRandom) return neighbor;
-							if (route.batteryFeasible && neighbor.AugmentedTchebycheff(0.3) < best.AugmentedTchebycheff(0.3)) {
-								if (strategy == NeighborChoice::FIRST) return neighbor;
-								best = neighbor;
+						
+						Solution neighbor = s;
+						neighbor.addRoute(route);
+						if (isRandom) {
+							s = neighbor;
+							return;
+						}
+
+						if (route.isFeasible() && neighbor.AugmentedTchebycheff(0.3) < best.AugmentedTchebycheff(0.3)) {
+							if (strategy == NeighborChoice::FIRST) {
+								s = neighbor;
+								return;
 							}
+							best = neighbor;
 						}
 					}
 				}
 				s = best;
 			}
-			return s;
 		}
 
-		Solution exchangeConsecutive(Solution s, NeighborChoice strategy) {
+		void exchangeConsecutive(Solution& s, NeighborChoice strategy) {
 			bool isRandom = strategy == NeighborChoice::RANDOM;
 			std::random_device rd;
 			RandLib randlib(rd());
@@ -931,21 +947,27 @@ namespace algorithms {
 						Route route = s.routes[v];
 						//Swap the two nodes
 						Node* intermediate = route.path[i];
-						route.path.at(i) = route.path.at(i+1);
-						route.path.at(i+1) = intermediate;
+						route.path[i] = route.path[i+1];
+						route.path[i+1] = intermediate;
 						route.updateMetrics();
 						Solution neighbor = s;
 						neighbor.addRoute(route);
-						if (isRandom) return neighbor;
+						if (isRandom) {
+							s = neighbor;
+							return;
+						}
 						if (route.isFeasible() && neighbor.AugmentedTchebycheff(0.3) < best.AugmentedTchebycheff(0.3)) {
-							if (strategy == NeighborChoice::FIRST) return neighbor;
+							if (strategy == NeighborChoice::FIRST)
+							{
+								s = neighbor;
+								return;
+							}
 							best = neighbor;
 						}
 					}
 				}
 				s = best;
 			}
-			return s;
 		}
 
 		Solution swapNaturalSequence(Solution s,NeighborChoice strategy) {

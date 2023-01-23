@@ -29,7 +29,7 @@ namespace algorithms
 	    */
 		typedef Solution(*Move)(Solution s, NeighborChoice strategy);
 
-		Route PairInsertion(Request* r, Solution s, std::vector<EAV*> available_vehicles,Instance::Objective objective,bool includeCS=false);
+		Route PairInsertion(Request* r,Solution s, std::vector<EAV*> available_vehicles,Instance::Objective objective,bool includeCS=false);
 
 		double DistanceBetweenUsers(Request* a,Request* b);
 
@@ -62,7 +62,7 @@ namespace algorithms
 		/*
 		* Intra-route operator. Removes a charging station and reinserts it in every feasible position.
 		*/
-		Solution moveStation(Solution s,NeighborChoice strategy);
+		void moveStation(Solution& s,NeighborChoice strategy);
 
 		/*
 		 Removes a request from its route and reinserts it into its best position of another route.
@@ -88,11 +88,11 @@ namespace algorithms
 		*/
 		Solution swapRoute(Solution s,NeighborChoice strategy);
 
-		Solution exchangeOrigin(Solution s, NeighborChoice strategy);
+		void exchangeOrigin(Solution& s, NeighborChoice strategy);
 
-		Solution exchangeDestination(Solution s, NeighborChoice strategy);
+		void exchangeDestination(Solution& s, NeighborChoice strategy);
 
-		Solution exchangeConsecutive(Solution s, NeighborChoice strategy);
+		void exchangeConsecutive(Solution& s, NeighborChoice strategy);
 
 		Solution Destroy(Solution s, double removal_ratio, double randomness, Instance::Objective objective);
 		
