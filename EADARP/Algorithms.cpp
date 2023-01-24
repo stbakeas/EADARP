@@ -42,20 +42,16 @@ namespace algorithms {
 		for (int iter = 0; iter < max_iterations; iter++)
 		{
 			Solution s = run.NaturalSelection();
-			std::cout << "Solution selected,";
 			for (auto objective : inst.objectives) {
 
 				if (objective != Instance::Objective::System) {
 					Solution s_1 = Destroy(s, 0.1, 10, objective);
 					run.archive.insert(s_1);
-					std::cout << "Destroyed";
 					Solution s_2 = Repair(s_1, objective);
 					run.archive.insert(s_2);
-					std::cout << "Repaired,";
 				}
 			}
 			run.updateArchive();
-			std::cout << iter << "\n";
 			auto finish = std::chrono::steady_clock::now();
 			double elapsed = std::chrono::duration_cast<std::chrono::seconds>(finish - start).count();
 			run.elapsed_seconds = elapsed;
@@ -64,7 +60,7 @@ namespace algorithms {
 		return run;
 	}
 
-	Run IteratedGreedy(Solution initial,int max_iterations,int max_seconds)
+	Run IteratedGreedy(Solution initial,unsigned int max_iterations,int max_seconds)
 	{
 		int T_init = 20;
 		int statistics[3] = { 0,0,0 };
@@ -74,9 +70,9 @@ namespace algorithms {
 		Run run;
 		auto start = std::chrono::steady_clock::now();
 		run.init = initial;
-		std::cout << "Running ILS..." << "\n";
+		printf("%s\n", "Running ILS...");
 		Solution incumbent = run.best=run.init;
-		int iter = 0;
+		unsigned int iter = 0;
 		while (iter<max_iterations) {
 			Solution s =Destroy(incumbent, 0.1, 7,Instance::Objective::NumberOfObjectives);
 			s = Repair(s, Instance::Objective::NumberOfObjectives);
@@ -99,7 +95,7 @@ namespace algorithms {
 				incumbent = s;
 			}
 			iter++;
-			std::cout << iter << "\n";
+			printf("%u\n",iter);
 			if (iter > statistics[1]) statistics[1] = iter;
 			auto finish = std::chrono::steady_clock::now();
 			double elapsed = std::chrono::duration_cast<std::chrono::seconds>(finish - start).count();
@@ -107,10 +103,10 @@ namespace algorithms {
 			if (elapsed > max_seconds) break;
 			T_init *= cooling_factor;
 		}
-		std::cout << "\n";
-		std::cout << "Times new best solution was found: " << statistics[0] << "\n";
-		std::cout << "Most iterations without improvement: " << statistics[1] << "\n";
-		std::cout << "Times intra-route local search brought improvement: " << statistics[2] << "\n";
+		printf("\n");
+		printf("%s%u\n", "Times new best solution was found: ",statistics[0]);
+		printf("%s%u\n", "Most iterations without improvement: ", statistics[1]);
+		printf("%s%u\n", "Times intra-route local search brought improvement: ", statistics[2]);
 		run.init.deleteEmptyRoutes();
 		run.best.deleteEmptyRoutes();
 		return run;
@@ -123,7 +119,7 @@ namespace algorithms {
 		std::random_device rd;
 		RandLib randlib(rd());
 		int threshold = T_max;
-		std::cout << threshold << "\n";
+		printf("%i\n",threshold);
 		int i_imp = 0;
 		run.init = initial;
 		run.best = run.init;
@@ -161,7 +157,7 @@ namespace algorithms {
 			}
 		}
 		
-		std::cout << "\n";
+		printf("\n");
 		run.init.deleteEmptyRoutes();
 		run.best.deleteEmptyRoutes();
 		return run;
@@ -323,9 +319,8 @@ namespace algorithms {
 				if (inserted_route.isFeasible()) solution.addRoute(inserted_route);
 				else solution.rejected.push_back(request); 
 			}
-			auto finish = std::chrono::steady_clock::now();
-			double elapsed = std::chrono::duration_cast<std::chrono::seconds>(finish - start).count();
-			std::cout << elapsed << "\n";
+			unsigned int elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - start).count();
+			printf("%u\n", elapsed);
 			return solution;
 		}
 

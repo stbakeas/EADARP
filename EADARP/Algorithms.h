@@ -15,7 +15,7 @@ namespace algorithms
 	*/
 	Run MDIG(std::vector<Solution> initPop, int max_iterations, int max_seconds);
 
-	Run IteratedGreedy(Solution initial,int max_iterations, int max_seconds);
+	Run IteratedGreedy(Solution initial,unsigned int max_iterations, int max_seconds);
 
 	Run DeterministicAnnealing(Solution initial, int Nb_iter, int T_max, int T_red, int n_imp);
 

@@ -184,7 +184,7 @@ void Instance::loadFromFile(const std::string instance_file_name, int seed) {
     requests.reserve(requests_num);
 
     int stations_num;
-    std::cout << "Enter number of charging stations: ";
+    printf("Enter number of charging stations : ");
     std::cin >> stations_num;
 
     nodes.reserve(2 * requests_num + 2 * vehicles_num + stations_num);
@@ -423,8 +423,8 @@ void Instance::Preprocessing() {
                 counter++;
             }
         }
-        std::cout << "Request " << r->origin->id << " has " << r->forbidden_vehicles[user].size() << " vehicles for user & "
-            << r->forbidden_vehicles[owner].size() << " for owner.\n";
+        printf("%s%i%s%i%s%i%s\n", "Request " , r->origin->id , " has " , r->forbidden_vehicles[user].size() , " vehicles for user & "
+            , r->forbidden_vehicles[owner].size() , " for owner.");
 
         
 
