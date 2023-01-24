@@ -276,9 +276,8 @@ using namespace operations_research;
 int main() {
 	std::random_device rd;
 	RandLib randlib(rd());
-	inst.loadFromFile("Instances-MDHDARP/a10-100hetIUY.txt",10);
+	inst.loadFromFile("Instances-MDHDARP/a10-100hetIUY.txt",2);
 	Run run = algorithms::IteratedGreedy(algorithms::details::Init1(), 30, 180);
-	run.best.Display(2);
-	
+	printf("%s%f%s%f\n","From ",run.init.AugmentedTchebycheff(0.3)," to ",run.best.AugmentedTchebycheff(0.3));
 	return EXIT_SUCCESS;
 }

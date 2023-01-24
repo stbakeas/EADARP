@@ -29,7 +29,6 @@ public:
 	std::vector<double> stay_times;
 	std::vector<int> loads;
 	std::vector<double> battery;
-	std::vector<std::vector<int>> ml; //ml{i,j} stores the maximum load of the vehicle between nodes with positions i and j respectively.
 	std::unordered_map<CStation*, bool> assigned_cs;
 	std::vector<std::pair<int, int>> natural_sequences;
 
@@ -41,15 +40,15 @@ public:
 	bool hasNoRequests(); // Check if the route contains no requests.
 	bool isFeasible();
 	Request* selectRandomRequest(RandLib randlib);
-	bool isInsertionBatteryFeasible(Request* request, int i, int j);
-	bool isInsertionCapacityFeasible(Request* request, int i, int j);
+	bool isInsertionBatteryFeasible(Request* request, int i, int j) const;
+	bool isInsertionCapacityFeasible(Request* request, int i, int j) const;
 	bool batteryFeasibilityTest(Request* request, int i, int j);
 	std::pair<size_t, size_t> getRequestPosition(const Request* r);
 	double getEarliestTime(int i); //Get the earliest time that node in position i in the route can be served
 	int getLoad(int i); //Get the load at position i
 	double getDuration(); //Get the route's total duration
-	double getAddedDistance(Node* node, int i,Measure measure=Measure::Distance); //For a single node
-	double getAddedDistance(Request* request, int i, int j, Measure measure = Measure::Distance); //For a request
+	double getAddedDistance(Node* node, int i,Measure measure=Measure::Distance) const; //For a single node
+	double getAddedDistance(Request* request, int i, int j, Measure measure = Measure::Distance) const; //For a request
 	double get_forward_time_slack(int i);
 	CStation* findBestChargingStationAfter(int i);
 
@@ -68,7 +67,6 @@ public:
 	void computeRideTime(int i);
 	void computeStayTime(int i);
 	void computeBatteryLevel(int i);
-	void computeMaximumLoadBetween(int i, int j);
 	void computeTotalCost();
 	void insertNode(Node* node, int index);
 	void insertRequest(Request* r, int i, int j);
