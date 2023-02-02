@@ -62,9 +62,7 @@ namespace algorithms {
 
 	Run IteratedGreedy(Solution initial,unsigned int max_iterations,int max_seconds)
 	{
-		int T_init = 20;
-		int statistics[3] = { 0,0,0 };
-		double cooling_factor = 0.97;
+		std::array<int,3> statistics{ 0,0,0 };
 		std::random_device rd;
 		RandLib randlib(rd());
 		Run run;
@@ -88,20 +86,14 @@ namespace algorithms {
 				if (s.AugmentedTchebycheff(0.3) < run.best.AugmentedTchebycheff(0.3)) {
 					run.best = s;
 					statistics[0]++;
-					iter = 0;
 				}
-			}
-			else if (SimulatedAnnealingAcceptanceCriterion(s, incumbent, T_init)) {
-				incumbent = s;
 			}
 			iter++;
 			printf("%u\n",iter);
 			if (iter > statistics[1]) statistics[1] = iter;
-			auto finish = std::chrono::steady_clock::now();
-			double elapsed = std::chrono::duration_cast<std::chrono::seconds>(finish - start).count();
-			run.elapsed_seconds = elapsed;
-			if (elapsed > max_seconds) break;
-			T_init *= cooling_factor;
+			double elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+			run.elapsed_seconds = elapsed/1000.0;
+			if (run.elapsed_seconds > max_seconds) break;
 		}
 		printf("\n");
 		printf("%s%u\n", "Times new best solution was found: ",statistics[0]);
@@ -186,10 +178,10 @@ namespace algorithms {
 			capset.reserve(reserve_size);
 			for (EAV* v : available_vehicles) {
 				if (r->forbidden_vehicles[user].contains(v->id) &&
-					r->percentages[user][r->forbidden_vehicles[user][v->id]] < std::min(1.0f, 3 * s.weights[user]))
+					r->percentages[user][r->forbidden_vehicles[user][v->id]] < std::min(1.0f, inst.controlParameter * s.weights[user]))
 						continue;
 				if (r->forbidden_vehicles[owner].contains(v->id) &&
-					r->percentages[owner][r->forbidden_vehicles[owner][v->id]] < std::min(1.0f, 3 *s.weights[owner]))
+					r->percentages[owner][r->forbidden_vehicles[owner][v->id]] < std::min(1.0f, inst.controlParameter * s.weights[owner]))
 						continue;
 				bool batteryNotFound = true;
 				size_t length = s.routes[v].path.size();
@@ -301,7 +293,7 @@ namespace algorithms {
 			}
 
 		}
-
+        
 		double DistanceBetweenUsers(Request* a,Request* b) {
 			return inst.getTravelTime(a->origin,b->origin) + inst.getTravelTime(a->destination,b->destination);
 		}
@@ -1093,10 +1085,10 @@ namespace algorithms {
 			RandLib randlib(rd());
 			for (Request* req : s.rejected) s.removed.push_back({ req,nullptr });
 			s.rejected.clear();
-			std::shuffle(s.removed.begin(), s.removed.end(), rd);
-			for (size_t i = 0; i < s.removed.size(); i++) {
+			while (!s.removed.empty()) {
 				bool notFound = false;
-				auto pair = s.removed[i];
+				int index = randlib.randint(0,s.removed.size()-1);
+				auto pair = s.removed[index];
 				std::vector<EAV*> vehicles = inst.vehicles;
 				if (pair.second != nullptr) vehicles.erase(std::remove(vehicles.begin(), vehicles.end(), pair.second), vehicles.end());
 				Route new_route = PairInsertion(pair.first, s, vehicles,objective,true);
@@ -1108,8 +1100,8 @@ namespace algorithms {
 					if (new_route.isFeasible()) s.addRoute(new_route);
 					else s.rejected.push_back(pair.first);
 				}
+				s.removed.erase(s.removed.begin() + index);
 			}
-			s.removed.clear();
 			return s;
 		}	
 	}

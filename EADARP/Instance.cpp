@@ -157,7 +157,7 @@ void Instance::RandomInit(int request_num, int vehicles_num, int stations_num, i
 }
 
 void Instance::loadFromFile(const std::string instance_file_name, int seed) {
-    Horizon = 1440;
+    Horizon = 1440.0;
     dischargeRate = 0.055;
     maximumBattery = 14.85;
     returnedBatteryPercentage = 0.1;
@@ -183,9 +183,9 @@ void Instance::loadFromFile(const std::string instance_file_name, int seed) {
     file >> requests_num;
     requests.reserve(requests_num);
 
-    int stations_num;
-    printf("Enter number of charging stations : ");
-    std::cin >> stations_num;
+    int stations_num=3;
+    /*printf("Enter number of charging stations : ");
+    std::cin >> stations_num;*/
 
     nodes.reserve(2 * requests_num + 2 * vehicles_num + stations_num);
 
@@ -200,10 +200,10 @@ void Instance::loadFromFile(const std::string instance_file_name, int seed) {
         {
             file >> vehicle_capacities[i];
         }
-        int total_capacity = std::accumulate(vehicle_capacities.begin(), vehicle_capacities.end(), 0.0);
+        int total_capacity = ceil(std::accumulate(vehicle_capacities.begin(), vehicle_capacities.end(), 0)/2);
         if (total_capacity > maximumCapacity) maximumCapacity = total_capacity;
-        int start_time = randlib.randint(0, Horizon-max_route_duration);
-        int end_time = start_time + max_route_duration;
+        int start_time = 0.0;// randlib.randint(0, Horizon-max_route_duration);
+        int end_time = Horizon;//start_time + max_route_duration;
 
         Node* node_start = new Node(2 * requests_num + i);
         Node* node_end = new Node(2 * requests_num +vehicles_num+i);

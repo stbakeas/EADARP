@@ -6,6 +6,7 @@
 #include "CStation.h"
 #include <unordered_map>
 #include <typeinfo>
+#include <array>
 /**
  * Macro for global access.
  */
@@ -32,7 +33,7 @@ private:
 
 public:
     enum class Objective{User,Owner,System,NumberOfObjectives} ;
-    std::vector<Objective> objectives = { Objective::User,Objective::Owner,Objective::System };
+    std::array<Objective,3> objectives = { Objective::User,Objective::Owner,Objective::System };
     std::vector<std::vector<float>> weight_combinations;
     std::string name;
     std::vector<Node*> nodes;
@@ -40,6 +41,7 @@ public:
     std::vector<Request*> requests;
     std::vector<CStation*> charging_stations;
     std::vector<std::vector<double>> distanceMatrix;
+    int controlParameter;
     double maxDistance;
     int numberOfDepots;
     double Horizon;
@@ -47,8 +49,8 @@ public:
     int maximumCapacity = 0.0;
     double returnedBatteryPercentage;
     double maximumBattery;
-    double ideal[3];
-    double nadir[3];
+    std::array<double, static_cast<int>(Objective::NumberOfObjectives)> ideal;
+    std::array<double, static_cast<int>(Objective::NumberOfObjectives)> nadir;
     ~Instance();
     Instance(const Instance&) = delete;
     void operator=(const Instance&) = delete;

@@ -16,7 +16,7 @@ float float_one_point_round(float value)
     return ((float)((int)(value * 10))) / 10;
 }
 
-void Solution::SetWeights(const std::vector<float>& values) {
+void Solution::SetWeights(const std::array<float,static_cast<int>(Instance::Objective::NumberOfObjectives)>& values) {
     weights[0] = values[0];
     weights[1] = values[1];
     weights[2] = values[2];

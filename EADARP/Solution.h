@@ -2,6 +2,7 @@
 #include "Route.h"
 #include "Position.h"
 #include "Instance.h"
+#include <array>
 
 class Solution
 {
@@ -29,9 +30,9 @@ public:
 	std::unordered_map<EAV*, Route> routes;
 	std::vector<Request*> rejected;
 	std::vector<std::pair<Request*, EAV*>> removed;
-	double objective_value[static_cast<int>(Instance::Objective::NumberOfObjectives)];
-	float weights[static_cast<int>(Instance::Objective::NumberOfObjectives)] = { 0.33,0.33,0.33 };
-	void SetWeights(const std::vector<float>& values);
+	std::array<double, static_cast<int>(Instance::Objective::NumberOfObjectives)> objective_value;
+	std::array<float, static_cast<int>(Instance::Objective::NumberOfObjectives)> weights = { 0.25,0.25,0.5 };
+	void SetWeights(const std::array<float,static_cast<int>(Instance::Objective::NumberOfObjectives)>& values);
 
 	/**
 	 * Add (or update) the route traversed by vehicle of route `r`.

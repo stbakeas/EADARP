@@ -15,10 +15,13 @@
 #include <sstream>
 #include <string>
 #include <utility>
+#include <fstream>
 
 
 using namespace std;
 using namespace operations_research;
+
+
 
 
 
@@ -273,11 +276,48 @@ using namespace operations_research;
 //	}
 //}
 
+void VehicleExclusionImpact() {
+	unsigned int initialRequests;
+	for (int x = 0; x <= 4; x++) {
+		ofstream timeFile("exclude" + to_string(x) + "time.txt");
+		ofstream costFile("exclude" + to_string(x) + "cost.txt");
+		timeFile << "Instance Time\n";
+		costFile << "Instance Cost\n";
+		printf("%s%i%s\n", "Excluding ", 100 * x / 4, "% of vehicles...");
+		std::pair<int, int> vehicleRange{ 9,16 };
+		initialRequests = 108;
+		inst.controlParameter = x;
+		for (int i = vehicleRange.first; i <= vehicleRange.second; i++) {
+			inst.loadFromFile("Instances-MDHDARP/a" + to_string(i) + "-" + to_string(initialRequests) + "hetIUY.txt", 3);
+			printf("%s%i%c%i\n", "Instance ", i, '-', initialRequests);
+			double avgTime;
+			double avgCost;
+			for (int j = 0; j < 5; j++) {
+				Run run = algorithms::IteratedGreedy(algorithms::details::Init1(), 130, INT_MAX);
+				avgTime += run.elapsed_seconds;
+				avgCost += run.best.AugmentedTchebycheff(0.3);
+			}
+			avgTime /= 5;
+			avgCost /= 5;
+			timeFile << i - 8 << " " << avgTime << "\n";
+			costFile << i - 8 << " " << avgCost << "\n";
+			initialRequests += 12;
+			inst.~Instance();
+		}
+		timeFile.close();
+		costFile.close();
+	}
+}
+
 int main() {
-	std::random_device rd;
-	RandLib randlib(rd());
-	inst.loadFromFile("Instances-MDHDARP/a10-100hetIUY.txt",2);
-	Run run = algorithms::IteratedGreedy(algorithms::details::Init1(), 30, 180);
-	printf("%s%f%s%f\n","From ",run.init.AugmentedTchebycheff(0.3)," to ",run.best.AugmentedTchebycheff(0.3));
+
+	inst.loadFromFile("Instances-MDHDARP/a10-100hetIUY.txt", 3);
+	inst.controlParameter = 4;
+	Solution init = algorithms::details::Init1();
+	Run run = algorithms::IteratedGreedy(init, 100, 240);
+	printf("%s%f\n","CPU(s): ", run.elapsed_seconds);
+	run.init.Display(2);
+	run.best.Display(2);
+	
 	return EXIT_SUCCESS;
 }
