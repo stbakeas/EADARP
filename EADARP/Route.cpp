@@ -272,7 +272,6 @@ void Route::computeBatteryLevel(int i) {
     }
 }
 
-
 void Route::computeTotalCost() {
     int n = path.size();
     for (auto objective : inst.objectives) cost[static_cast<int>(objective)] = 0.0;
@@ -307,7 +306,6 @@ void Route::computeTotalCost() {
     
     cost[static_cast<int>(Instance::Objective::Owner)] += std::max(0.0, arrival_times.back() - path.back()->latest);
 }
-
 //Inserting node after position i
 double Route::getAddedDistance(Node* node, int i, Measure measure) const {
     double dist = inst.getTravelTime(path[i], node)
@@ -513,46 +511,13 @@ bool Route::isInsertionCapacityFeasible(Request* request, int i, int j) const {
 }
 
 /*
-* Checks that the battery level at every node affected by the insertion is above 0.
-* Worst case running time: O(n), where *n* the number of nodes in the route.
-*/
-bool Route::isInsertionBatteryFeasible(Request* request, int i, int j) const {
-    if (j < i || i < 0 || j < 0 || i + 1 >= path.size() || j + 1 >= path.size()) return false;
-    else if (i == j) {
-        if (battery[i] - inst.getFuelConsumption(path[i], request->origin) -
-            inst.getFuelConsumption(request->origin, request->destination) <= 0) return false;
-        double extra_distance = getAddedDistance(request, i, j);
-        for (int x = i+1; x < path.size(); x++)
-        {
-            if (battery[x] - inst.dischargeRate*extra_distance <= 0) return false;
-        }
-        return true;
-    }
-    else {
-        if (battery[i] - inst.getFuelConsumption(path[i], request->origin) <= 0) return false;
-        double extra_distance_origin = getAddedDistance(request->origin, i);
-        for (int x = i+1; x <= j; x++) {
-
-            if (battery[x] - inst.dischargeRate*extra_distance_origin <= 0 || path[x]->isChargingStation()) return false;
-        }
-        if (battery[j] - inst.dischargeRate*extra_distance_origin - inst.getFuelConsumption(path[j], request->destination) <= 0) return false;
-        double extra_distance_destination = getAddedDistance(request->destination, j);
-        double total_extra_distance = extra_distance_origin + extra_distance_destination;
-        for (int x = j + 1; x < path.size(); x++) {
-            if (battery[x] - inst.dischargeRate*total_extra_distance <= 0) return false;
-        }
-        return true;
-    }
-}
-
-/*
   Checks that the battery level at the assigned charging stations and the depot is above 0.
   Worst case running time: O(|S|), where S the set of available charging stations. 
 */
-bool Route::batteryFeasibilityTest(Request* request, int i, int j) {
+bool Route::isInsertionBatteryFeasible(Request* request, int i, int j,bool increaseChargingTime) {
     if (j < i || i < 0 || j < 0 || i + 1 >= path.size() || j + 1 >= path.size()) return false;
     else {
-        if (adaptiveCharging) {
+        if (increaseChargingTime) {
             //Spot the important nodes (depots,charging stations) the request lies between.
             int closest_left = 0;
             int closest_right = path.size() - 1;

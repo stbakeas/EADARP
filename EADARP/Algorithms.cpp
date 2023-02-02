@@ -172,8 +172,10 @@ namespace algorithms {
 			int example_route_size = s.routes[available_vehicles[vehicle_index]].path.size();
 			int reserve_size = available_vehicles.size() * example_route_size * (example_route_size - 1) / 2;
 
-			std::vector<Position> batset;
-			batset.reserve(reserve_size);
+			std::vector<Position> strong_batset;
+			strong_batset.reserve(reserve_size);
+			std::vector<Position> weak_batset;
+			weak_batset.reserve(reserve_size);
 			std::vector<Position> capset;
 			capset.reserve(reserve_size);
 			for (EAV* v : available_vehicles) {
@@ -203,15 +205,22 @@ namespace algorithms {
 							
 						}
 						double added_distance = s.routes[v].getAddedDistance(r, i, j);
-						if (s.routes[v].batteryFeasibilityTest(r, i, j))
+						if (s.routes[v].isInsertionCapacityFeasible(r, i, j))
 						{
-							batset.emplace_back(v, i, j, nullptr, -1);
-							batset.back().setAddedDistance(added_distance);
-							batteryNotFound = false;
-							if (s.routes[v].isInsertionCapacityFeasible(r, i, j)) {
-								capset.emplace_back(v, i, j, nullptr, -1);
-								capset.back().setAddedDistance(added_distance);
+							capset.emplace_back(v, i, j, nullptr, -1);
+							capset.back().setAddedDistance(added_distance);
+							if (s.routes[v].isInsertionBatteryFeasible(r, i, j, false)) {
+								strong_batset.emplace_back(v, i, j, nullptr, -1);
+								strong_batset.back().setAddedDistance(added_distance);
+								batteryNotFound = false;
 							}
+							else if (s.routes[v].isInsertionBatteryFeasible(r, i, j, true)) {
+								weak_batset.emplace_back(v, i, j, nullptr, -1);
+								weak_batset.back().setAddedDistance(added_distance);
+								batteryNotFound = false;
+							}
+							
+
 						}
 					}
 				}
@@ -253,15 +262,21 @@ namespace algorithms {
 											continue;
 									}
 									double added_distance = s.routes[v].getAddedDistance(r, i, j);
-									if (s.routes[v].batteryFeasibilityTest(r, i, j))
+									if (s.routes[v].isInsertionCapacityFeasible(r, i, j))
 									{
-										batset.emplace_back(v, i, j, min_s, pos);
-										batset.back().setAddedDistance(stationAddedDistance + added_distance);
-										if (s.routes[v].isInsertionCapacityFeasible(r, i, j)) {
-											capset.emplace_back(v, i, j, min_s, pos);
-											capset.back().setAddedDistance(stationAddedDistance + added_distance);
+										capset.emplace_back(v, i, j, nullptr, -1);
+										capset.back().setAddedDistance(added_distance);
+										if (s.routes[v].isInsertionBatteryFeasible(r, i, j, false)) {
+											strong_batset.emplace_back(v, i, j, nullptr, -1);
+											strong_batset.back().setAddedDistance(added_distance);
 											positionFound = true;
 										}
+										else if (s.routes[v].isInsertionBatteryFeasible(r, i, j, true)) {
+											weak_batset.emplace_back(v, i, j, nullptr, -1);
+											weak_batset.back().setAddedDistance(added_distance);
+											positionFound = true;
+										}
+
 
 									}
 								}
@@ -274,11 +289,12 @@ namespace algorithms {
 					}
 				}
 			}
-			if (batset.empty() || capset.empty()) { return empty_route; }
+			if (capset.empty() || (strong_batset.empty() && weak_batset.empty())) { return empty_route; }
 			else {
+				std::vector<Position> feasible = strong_batset.empty() ? weak_batset : strong_batset;
 				Position min_pos;
 				double min_cost=DBL_MAX;
-				for (std::vector<Position>::iterator st = capset.begin(); st != capset.end(); ++st) {
+				for (std::vector<Position>::iterator st = feasible.begin(); st != feasible.end(); ++st) {
 					double cost = s.getInsertionCost(r, *st,objective);
 					if (cost < min_cost) {
 						min_cost = cost;
@@ -461,7 +477,7 @@ namespace algorithms {
 									continue;
 
 							}
-							if (solution.routes[v].batteryFeasibilityTest(r, i, j) &&
+							if (solution.routes[v].isInsertionBatteryFeasible(r, i, j,true) &&
 								solution.routes[v].isInsertionCapacityFeasible(r, i, j))
 								feasible.emplace_back(v, i, j, nullptr, -1);
 						}

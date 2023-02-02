@@ -40,9 +40,8 @@ public:
 	bool hasNoRequests(); // Check if the route contains no requests.
 	bool isFeasible();
 	Request* selectRandomRequest(RandLib randlib);
-	bool isInsertionBatteryFeasible(Request* request, int i, int j) const;
 	bool isInsertionCapacityFeasible(Request* request, int i, int j) const;
-	bool batteryFeasibilityTest(Request* request, int i, int j);
+	bool isInsertionBatteryFeasible(Request* request, int i, int j,bool increaseChargingTime);
 	std::pair<size_t, size_t> getRequestPosition(const Request* r);
 	double getEarliestTime(int i); //Get the earliest time that node in position i in the route can be served
 	int getLoad(int i); //Get the load at position i
