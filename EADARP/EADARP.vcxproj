@@ -153,6 +153,7 @@
     <ClCompile Include="Instance.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Node.cpp" />
+    <ClCompile Include="ORTools.cpp" />
     <ClCompile Include="RandLib.cpp" />
     <ClCompile Include="Request.cpp" />
     <ClCompile Include="Route.cpp" />
@@ -165,6 +166,7 @@
     <ClInclude Include="EAV.h" />
     <ClInclude Include="Instance.h" />
     <ClInclude Include="Node.h" />
+    <ClInclude Include="ORTools.h" />
     <ClInclude Include="Position.h" />
     <ClInclude Include="RandLib.h" />
     <ClInclude Include="Request.h" />
