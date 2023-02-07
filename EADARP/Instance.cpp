@@ -202,8 +202,8 @@ void Instance::loadFromFile(const std::string instance_file_name, int seed) {
         }
         int total_capacity = ceil(std::accumulate(vehicle_capacities.begin(), vehicle_capacities.end(), 0)/2);
         if (total_capacity > maximumCapacity) maximumCapacity = total_capacity;
-        int start_time = 0.0;// randlib.randint(0, Horizon-max_route_duration);
-        int end_time = Horizon;//start_time + max_route_duration;
+        int start_time = randlib.randint(0, Horizon-max_route_duration);
+        int end_time = start_time + max_route_duration;
 
         Node* node_start = new Node(2 * requests_num + i);
         Node* node_end = new Node(2 * requests_num +vehicles_num+i);

@@ -188,7 +188,7 @@ void Route::updateMetrics() {
         if (adaptiveCharging) computeChargingTime(i);
         if (path[i]->isOrigin()) requests.push_back(inst.getRequest(path[i]));
     }
-    if (adaptiveCharging) BasicScheduling();
+    if (adaptiveCharging) LazyScheduling();
     storeNaturalSequences();
     computeTotalCost();
 }
