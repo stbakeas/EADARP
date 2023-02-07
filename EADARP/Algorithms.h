@@ -15,7 +15,8 @@ namespace algorithms
 	*/
 	Run MDIG(std::vector<Solution> initPop, int max_iterations, int max_seconds);
 
-	Run IteratedGreedy(Solution initial,unsigned int max_iterations, int max_seconds);
+	Run IteratedGreedy(Solution initial,unsigned int max_iterations, int max_seconds,
+		int removalRandomness,float removalPercentage);
 
 	Run DeterministicAnnealing(Solution initial, int Nb_iter, int T_max, int T_red, int n_imp);
 
@@ -97,8 +98,6 @@ namespace algorithms
 		Solution Destroy(Solution s, double removal_ratio, double randomness, Instance::Objective objective);
 		
 		Solution Repair(Solution s,Instance::Objective objective);
-
-
     } 
 }
 

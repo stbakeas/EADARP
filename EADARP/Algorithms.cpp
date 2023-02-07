@@ -60,7 +60,7 @@ namespace algorithms {
 		return run;
 	}
 
-	Run IteratedGreedy(Solution initial,unsigned int max_iterations,int max_seconds)
+	Run IteratedGreedy(Solution initial,unsigned int max_iterations,int max_seconds, int removalRandomness, float removalPercentage)
 	{
 		std::array<int,3> statistics{ 0,0,0 };
 		std::random_device rd;
@@ -70,9 +70,13 @@ namespace algorithms {
 		run.init = initial;
 		printf("%s\n", "Running ILS...");
 		Solution incumbent = run.best=run.init;
+		exchangeOrigin(incumbent, NeighborChoice::BEST);
+		exchangeDestination(incumbent, NeighborChoice::BEST);
+		exchangeConsecutive(incumbent, NeighborChoice::BEST);
+		moveStation(incumbent, NeighborChoice::BEST);
 		unsigned int iter = 0;
 		while (iter<max_iterations) {
-			Solution s =Destroy(incumbent, 0.1, 7,Instance::Objective::NumberOfObjectives);
+			Solution s =Destroy(incumbent, removalPercentage, removalRandomness,Instance::Objective::NumberOfObjectives);
 			s = Repair(s, Instance::Objective::NumberOfObjectives);
 			double before = s.AugmentedTchebycheff(0.3);
 			exchangeOrigin(s, NeighborChoice::BEST);
@@ -317,11 +321,11 @@ namespace algorithms {
 		Solution Init1() {
 			Solution solution;	
 			std::random_device rd;
-			RandLib randlib(rd());
+			RandLib randlib(1);
 			auto start = std::chrono::steady_clock::now();
 			solution.AddDepots();
 			std::vector<Request*> unassigned = inst.requests;
-			std::shuffle(unassigned.begin(), unassigned.end(), rd);
+			std::shuffle(unassigned.begin(), unassigned.end(),randlib.Gen);
 			for (Request* request:unassigned) {
 				Route inserted_route = PairInsertion(request, solution, inst.vehicles,Instance::Objective::NumberOfObjectives,true);
 				if (inserted_route.isFeasible()) solution.addRoute(inserted_route);
