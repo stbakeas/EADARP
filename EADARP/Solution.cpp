@@ -6,7 +6,8 @@
 #include <map>
 
 Solution::Solution(){
-    for (size_t i = 0; i < 3; i++) objective_value[i] = 0.0;
+    for (size_t i = 0; i < 2; i++) objective_value[i] = 0.0;
+    objective_value[2] = inst.requests.size();
     rejected.reserve(inst.requests.size());
     removed.reserve(inst.requests.size()/2);
 }
@@ -27,15 +28,17 @@ void Solution::addRoute(Route r)
     // In case we are updating the vehicle's route...
     if (routes.find(r.vehicle) != routes.end())
     {
-        for (auto objective : inst.objectives) {
-            objective_value[static_cast<int>(objective)] -= routes[r.vehicle].cost[static_cast<int>(objective)];
-        } 
+        objective_value[static_cast<int>(Instance::Objective::User)] -= routes[r.vehicle].cost[static_cast<int>(Instance::Objective::User)];
+        objective_value[static_cast<int>(Instance::Objective::Owner)] -= routes[r.vehicle].cost[static_cast<int>(Instance::Objective::Owner)];
+        objective_value[static_cast<int>(Instance::Objective::System)] += routes[r.vehicle].cost[static_cast<int>(Instance::Objective::System)];
     }
-    for (auto objective : inst.objectives) {
-        objective_value[static_cast<int>(objective)] += r.cost[static_cast<int>(objective)];
-        if (objective_value[static_cast<int>(objective)] > inst.nadir[static_cast<int>(objective)]) 
-            inst.nadir[static_cast<int>(objective)] = objective_value[static_cast<int>(objective)];
-    }
+
+    objective_value[static_cast<int>(Instance::Objective::User)] += r.cost[static_cast<int>(Instance::Objective::User)];
+    if (objective_value[static_cast<int>(Instance::Objective::User)] > inst.nadir[static_cast<int>(Instance::Objective::User)])
+        inst.nadir[static_cast<int>(Instance::Objective::User)] = objective_value[static_cast<int>(Instance::Objective::User)];
+    objective_value[static_cast<int>(Instance::Objective::Owner)] += r.cost[static_cast<int>(Instance::Objective::Owner)];
+    objective_value[static_cast<int>(Instance::Objective::System)] -= r.cost[static_cast<int>(Instance::Objective::System)];
+    
     routes[r.vehicle] = r;
 }
 

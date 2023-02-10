@@ -77,7 +77,10 @@ namespace algorithms {
 		unsigned int iter = 0;
 		while (iter<max_iterations) {
 			Solution s =Destroy(incumbent, removalPercentage, removalRandomness,Instance::Objective::NumberOfObjectives);
+			for (auto& [vehicle, route] : s.routes) route.deleteRedundantChargingStations();
+
 			s = Repair(s, Instance::Objective::NumberOfObjectives);
+
 			double before = s.AugmentedTchebycheff(0.3);
 			exchangeOrigin(s, NeighborChoice::BEST);
 			exchangeDestination(s, NeighborChoice::BEST);
@@ -85,6 +88,7 @@ namespace algorithms {
 			moveStation(s, NeighborChoice::BEST);
 			double after = s.AugmentedTchebycheff(0.3);
 			if (after < before) statistics[2]++;
+
 			if (s.AugmentedTchebycheff(0.3) < incumbent.AugmentedTchebycheff(0.3)) {
 				incumbent = s;
 				if (s.AugmentedTchebycheff(0.3) < run.best.AugmentedTchebycheff(0.3)) {
@@ -93,16 +97,16 @@ namespace algorithms {
 				}
 			}
 			iter++;
-			printf("%u\n",iter);
+			//printf("%u\n",iter);
 			if (iter > statistics[1]) statistics[1] = iter;
 			double elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
 			run.elapsed_seconds = elapsed/1000.0;
 			if (run.elapsed_seconds > max_seconds) break;
 		}
-		printf("\n");
+		/*printf("\n");
 		printf("%s%u\n", "Times new best solution was found: ",statistics[0]);
 		printf("%s%u\n", "Most iterations without improvement: ", statistics[1]);
-		printf("%s%u\n", "Times intra-route local search brought improvement: ", statistics[2]);
+		printf("%s%u\n", "Times intra-route local search brought improvement: ", statistics[2]);*/
 		run.init.deleteEmptyRoutes();
 		run.best.deleteEmptyRoutes();
 		return run;
@@ -305,7 +309,7 @@ namespace algorithms {
 						min_pos = *st;
 					}
 				}
-				if (min_cost > 1) return empty_route;
+				if (min_cost > 0) return empty_route;
 				if (min_pos.charging_station != nullptr) s.routes[min_pos.vehicle].insertNode(inst.nodes[min_pos.charging_station->id - 1], min_pos.cs_pos + 1);
 				s.routes[min_pos.vehicle].insertRequest(r, min_pos.origin_pos + 1, min_pos.dest_pos + 1);
 				s.routes[min_pos.vehicle].updateMetrics();

@@ -12,6 +12,7 @@ Route::Route(EAV* vehicle) {
 	this->vehicle = vehicle;
     batteryFeasible = true;
     capacityFeasible = true;
+    timeFeasible = true;
     for (CStation* s : inst.charging_stations) { 
         charging_times[s] = 0;
         assigned_cs[s] = false;
@@ -39,16 +40,11 @@ bool Route::isEmpty() {
 }
 
 bool Route::hasNoRequests() {
-    if (path.size() <= 2) return true;
-    else {
-        for (size_t i = 0; i < path.size(); i++) if (path[i]->isOrigin()) return false;
-        return true;
-    }
-    
+    return !requests.size();
 }
 
 bool Route::isFeasible() {
-    return batteryFeasible && capacityFeasible;
+    return batteryFeasible && capacityFeasible && timeFeasible;
 }
 
 void Route::BasicScheduling() {
@@ -285,15 +281,11 @@ void Route::computeTotalCost() {
             batteryFeasible = false;
             return;
         }
-        if (path[i]->isChargingStation()) {
-            CStation* cs = inst.getChargingStation(path[i]);
-            cost[static_cast<int>(Instance::Objective::System)] += charging_times[cs] * cs->recharge_cost;
-        }
         cost[static_cast<int>(Instance::Objective::User)] += std::max(0.0, start_of_service_times[i] - path[i]->latest) +
             std::max(0.0, ride_times[i] - path[i]->maximum_travel_time);
     }
 
-    for (Request* r : requests)  cost[static_cast<int>(Instance::Objective::System)] -= r->reward;
+    cost[static_cast<int>(Instance::Objective::System)] -= requests.size();
 
     if (loads.back() > vehicle->capacity) {
         capacityFeasible = false;
@@ -303,8 +295,12 @@ void Route::computeTotalCost() {
         batteryFeasible = false;
         return;
     }
+    if (arrival_times.back() > vehicle->end_time) {
+        timeFeasible = false;
+        return;
+    }
     
-    cost[static_cast<int>(Instance::Objective::Owner)] += std::max(0.0, arrival_times.back() - path.back()->latest);
+    if (!hasNoRequests()) cost[static_cast<int>(Instance::Objective::Owner)] = vehicle->acquisition_cost;
 }
 //Inserting node after position i
 double Route::getAddedDistance(Node* node, int i, Measure measure) const {
