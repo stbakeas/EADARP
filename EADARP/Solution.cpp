@@ -28,17 +28,13 @@ void Solution::addRoute(Route r)
     // In case we are updating the vehicle's route...
     if (routes.find(r.vehicle) != routes.end())
     {
-        objective_value[static_cast<int>(Instance::Objective::User)] -= routes[r.vehicle].cost[static_cast<int>(Instance::Objective::User)];
-        objective_value[static_cast<int>(Instance::Objective::Owner)] -= routes[r.vehicle].cost[static_cast<int>(Instance::Objective::Owner)];
-        objective_value[static_cast<int>(Instance::Objective::System)] += routes[r.vehicle].cost[static_cast<int>(Instance::Objective::System)];
+        for (auto objective : inst.objectives) 
+            objective_value[static_cast<int>(objective)] -= routes[r.vehicle].cost[static_cast<int>(objective)];
+        
     }
-
-    objective_value[static_cast<int>(Instance::Objective::User)] += r.cost[static_cast<int>(Instance::Objective::User)];
+    for (auto objective : inst.objectives) objective_value[static_cast<int>(objective)] += r.cost[static_cast<int>(objective)];
     if (objective_value[static_cast<int>(Instance::Objective::User)] > inst.nadir[static_cast<int>(Instance::Objective::User)])
         inst.nadir[static_cast<int>(Instance::Objective::User)] = objective_value[static_cast<int>(Instance::Objective::User)];
-    objective_value[static_cast<int>(Instance::Objective::Owner)] += r.cost[static_cast<int>(Instance::Objective::Owner)];
-    objective_value[static_cast<int>(Instance::Objective::System)] -= r.cost[static_cast<int>(Instance::Objective::System)];
-    
     routes[r.vehicle] = r;
 }
 
@@ -58,8 +54,8 @@ void Solution::Display(int i) {
             size_t length = my_route.second.path.size();
             for (size_t i = 0; i < length - 1; i++)
             {
-                printf("%s%i%s%f%s%i%s",
-               my_route.second.path.at(i)->id,",",my_route.second.battery.at(i),"kWh,",my_route.second.loads[i],")->");
+                printf("%s%i%s%f%s%i%s","(",
+                    my_route.second.path.at(i)->id, ",", my_route.second.battery.at(i), "kWh,", my_route.second.loads[i], ")->");
             }
             printf("%s%i%s%f%s%i%s",
             "(" , my_route.second.path.back()->id , "," , my_route.second.battery.back() , "kWh," , my_route.second.loads.back() , ")");
@@ -168,7 +164,7 @@ double Solution::AugmentedTchebycheff(const double& rho) const {
     double augmentation = 0.0;
     double first_scale;
     for (size_t i = 0; i < 3; i++) { 
-        deviations[i]=objective_value[i] - inst.ideal[i];
+        deviations[i]=(objective_value[i] - inst.ideal[i])/(inst.nadir[i]-inst.ideal[i]);
         first_scale = weights[i] * deviations[i];
         augmentation += first_scale;
         if (first_scale > maxValue) maxValue = first_scale;

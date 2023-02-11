@@ -190,9 +190,7 @@ namespace algorithms {
 				if (r->forbidden_vehicles[user].contains(v->id) &&
 					r->percentages[user][r->forbidden_vehicles[user][v->id]] < std::min(1.0f, inst.controlParameter * s.weights[user]))
 						continue;
-				if (r->forbidden_vehicles[owner].contains(v->id) &&
-					r->percentages[owner][r->forbidden_vehicles[owner][v->id]] < std::min(1.0f, inst.controlParameter * s.weights[owner]))
-						continue;
+				if (r->forbidden_vehicles[owner].contains(v->id)) continue;
 				bool batteryNotFound = true;
 				size_t length = s.routes[v].path.size();
 				for (size_t i = 0; i < length-1; ++i)
@@ -317,11 +315,11 @@ namespace algorithms {
 			}
 
 		}
-        
-		double DistanceBetweenUsers(Request* a,Request* b) {
-			return inst.getTravelTime(a->origin,b->origin) + inst.getTravelTime(a->destination,b->destination);
-		}
 		
+		double DistanceBetweenUsers(Request* r1, Request* r2) {
+			return inst.getTravelTime(r1->origin, r2->origin) + inst.getTravelTime(r1->destination, r2->destination);
+		}
+
 		Solution Init1() {
 			Solution solution;	
 			std::random_device rd;
@@ -455,73 +453,25 @@ namespace algorithms {
 
 		Solution Init4() {
 			Solution solution;
-			RandLib randlib(1);
 			solution.AddDepots();
-			std::vector<EAV*> eavs = inst.vehicles;
-
-			//Sort the vehicles in ascending order of the shift duration
-			std::sort(eavs.begin(), eavs.end(), [](EAV* v1, EAV* v2) {
-				return v1->end_time - v1->start_time < v2->end_time - v2->start_time;
-			});
+			std::vector<EAV*> vehicles = inst.vehicles;
 			std::vector<Request*> unassigned = inst.requests;
-			for (EAV* v : eavs) {
-				std::shuffle(unassigned.begin(), unassigned.end(), randlib.Gen);
-				for (size_t x = 0; x < unassigned.size(); x++) {
-					Request* r = unassigned[x];
-					std::vector<Position> feasible;
-					for (size_t i = 0; i < solution.routes[v].path.size()-1; ++i)
-					{
-						if (inst.isForbiddenArc(solution.routes[v].path[i], r->origin)) continue;
-						for (size_t j = i; j < solution.routes[v].path.size()-1; ++j)
-						{
-							if (i == j) {
-								if (inst.isForbiddenArc(r->destination, solution.routes[v].path[i+1]))
-									continue;
-							}
-							else {
-								if (inst.isForbiddenArc(r->origin, solution.routes[v].path[i+1])) break;
-								if (inst.isForbiddenArc(r->destination, solution.routes[v].path[j + 1]) ||
-									inst.isForbiddenArc(solution.routes[v].path[j], r->destination))
-									continue;
 
-							}
-							if (solution.routes[v].isInsertionBatteryFeasible(r, i, j,true) &&
-								solution.routes[v].isInsertionCapacityFeasible(r, i, j))
-								feasible.emplace_back(v, i, j, nullptr, -1);
-						}
-					}
-					if (feasible.empty()) continue;
-					else {
-						Position min_pos = *feasible.begin();
-						double min_cost = solution.getInsertionCost(r, min_pos);
-						for (std::vector<Position>::iterator st = feasible.begin() + 1; st != feasible.end(); ++st) {
-							double cost = solution.getInsertionCost(r, *st);
-							if (cost < min_cost) {
-								min_cost = cost;
-								min_pos = *st;
-							}
-						}
-						Route new_route = solution.routes[v];
-						new_route.insertRequest(r, min_pos.origin_pos + 1, min_pos.dest_pos + 1);
-						new_route.updateMetrics();
-						solution.addRoute(new_route);
-						unassigned.erase(unassigned.begin() + x);
+			//Sort the vehicles in ascending order of acquisition cost
+			std::sort(vehicles.begin(), vehicles.end(), [](EAV* v1, EAV* v2) {
+				return v1->acquisition_cost < v2->acquisition_cost;
+			});
+
+			for (EAV* v : vehicles) {
+				for (int i = 0; i < unassigned.size();i++) {
+					Route newRoute = PairInsertion(unassigned[i], solution, { v }, Instance::Objective::NumberOfObjectives, true);
+					if (newRoute.isFeasible()) {
+						solution.addRoute(newRoute);
+						unassigned.erase(unassigned.begin() + i);
 					}
 				}
 			}
-			while (!unassigned.empty()) {
-				int random_request_index = randlib.randint(0, unassigned.size() - 1);
-				Request* request = unassigned.at(random_request_index);
-				Route inserted_route = PairInsertion(request, solution,inst.vehicles,Instance::Objective::NumberOfObjectives, true);
-				if (inserted_route.isFeasible()) {
-					Solution new_solution = solution;
-					new_solution.addRoute(inserted_route);
-					if (new_solution.AugmentedTchebycheff(0.3) < solution.AugmentedTchebycheff(0.3)) solution = new_solution;
-					else solution.rejected.push_back(request);
-				}
-				else solution.rejected.push_back(request);
-				unassigned.erase(unassigned.begin() + random_request_index);
-			}
+			solution.rejected = unassigned;
 			return solution;
 		}
 
@@ -1128,6 +1078,7 @@ namespace algorithms {
 			}
 			return s;
 		}	
+		
 	}
 }
 

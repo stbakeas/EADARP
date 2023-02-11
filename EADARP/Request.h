@@ -16,5 +16,6 @@ public:
 	Request() {};
 	Request(Node* origin, Node* destination,Direction direction);
 	Node* getCriticalVertex();
+	double SimilarityScore(Request* r);
 	~Request() {};
 };

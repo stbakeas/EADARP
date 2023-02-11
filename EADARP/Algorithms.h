@@ -32,7 +32,7 @@ namespace algorithms
 
 		Route PairInsertion(Request* r,Solution s, std::vector<EAV*> available_vehicles,Instance::Objective objective,bool includeCS=false);
 
-		double DistanceBetweenUsers(Request* a,Request* b);
+		double DistanceBetweenUsers(Request* r1,Request* r2);
 
 		/*
 		* Inspired by list heuristic proposed by Atahran et. al(2014)
@@ -50,7 +50,7 @@ namespace algorithms
         Solution Init2();
 
 		/*
-		* Sequential Insertion Heuristic based on ascending order of shift duration.
+		* Sequential Insertion Heuristic based on acquisition cost
 		*/
 		Solution Init4();
 
@@ -98,6 +98,7 @@ namespace algorithms
 		Solution Destroy(Solution s, double removal_ratio, double randomness, Instance::Objective objective);
 		
 		Solution Repair(Solution s,Instance::Objective objective);
+		
     } 
 }
 

@@ -164,18 +164,7 @@ int main() {
 
 	inst.loadFromFile("Instances-MDHDARP/a10-100hetIUY.txt", 3);
 	inst.controlParameter = 4;
-	Solution init = algorithms::details::Init1();
-	double avgCPU, avgCost;
-	avgCPU = avgCost = 0.0;
-	for (int i = 0; i < 10; i++) {
-		Run run = algorithms::IteratedGreedy(init, 300, INT_MAX, 7, 0.1);
-		avgCPU += run.elapsed_seconds;
-		avgCost += run.best.AugmentedTchebycheff(0.3);
-	}
-	avgCPU /= 10;
-	avgCost /= 10;
-	
-	printf("%s%f\n","CPU(s): ", avgCPU);
-	printf("%s%f\n", "Cost: ", avgCost);
+	Solution init = algorithms::details::Init4();
+	init.Display(2);
 	return EXIT_SUCCESS;
 }

@@ -147,12 +147,9 @@ void Instance::RandomInit(int request_num, int vehicles_num, int stations_num, i
 
     //We do this to represent a request i by (i,n+i) instead of (i,i+1)
     std::sort(nodes.begin(), nodes.end(), [](const Node* n1, const Node* n2) {return n1->id < n2->id; });
-    computeNadirPoints();
+    computeExtremePoints();
     createDistanceMatrix();
-    for (Request* r : requests) { 
-        r->reward = getTravelTime(r->origin, r->destination); 
-        ideal[static_cast<int>(Objective::System)] -= r->reward;
-    }
+    for (Request* r : requests) r->reward = r->origin->load*getTravelTime(r->origin, r->destination); 
     Preprocessing();
 }
 
@@ -162,10 +159,6 @@ void Instance::loadFromFile(const std::string instance_file_name, int seed) {
     maximumBattery = 14.85;
     returnedBatteryPercentage = 0.1;
     maxDistance = sqrt(2 * pow(abs(-10) + abs(10), 2));
-    for (size_t i = 0; i < static_cast<int>(Objective::NumberOfObjectives); i++) {
-        ideal[i] = 0.0;
-        nadir[i] = 1.0;
-    }
     RandLib randlib(seed);
     std::ifstream file(instance_file_name);
 
@@ -312,9 +305,9 @@ void Instance::loadFromFile(const std::string instance_file_name, int seed) {
 
     createDistanceMatrix();
     for (Request* r : requests) {
-        r->reward = getTravelTime(r->origin, r->destination);
-        ideal[static_cast<int>(Objective::System)] -= r->reward;
+        r->reward = r->origin->load*getTravelTime(r->origin, r->destination);
     }
+    computeExtremePoints();
     Preprocessing();
 }
 
@@ -332,21 +325,26 @@ void Instance::createDistanceMatrix()
     }
 }
 
-void Instance::computeNadirPoints() {
+void Instance::computeExtremePoints() {
 
-    nadir[0] = Horizon;
+    nadir[0] = 1.0;
+    ideal[0] = 0.0;
     
-    //Owner Inconvenience
-    nadir[1] = inst.vehicles.size() * maximumBattery * returnedBatteryPercentage;
-    for (EAV* v : inst.vehicles) nadir[1] += Horizon - v->end_time;
+    //Acquisition costs
+    ideal[1] = 0.0;
+    nadir[1] = 0.0;
+    for (EAV* v : inst.vehicles) { 
+        nadir[1] += v->acquisition_cost;
+    }
     
-    //System Cost
-    nadir[2] = 0.0;
-    for (CStation* s : inst.charging_stations) nadir[2] += inst.vehicles.size()*s->getRequiredTime(0.0, maximumBattery) * s->recharge_cost;
+    //Rejected requests
+    nadir[2] = inst.requests.size();
+    ideal[2] = 0.0;
 }
 
 void Instance::Preprocessing() {
    
+    //Arc Elimination
     int n = inst.requests.size();
     for (int i = 0; i < distanceMatrix.size(); i++) {
         for (int j = 0; j < distanceMatrix.size(); j++) {
@@ -363,6 +361,8 @@ void Instance::Preprocessing() {
             } 
         }
     }
+    
+    //Incompatible request-vehicle pairs
     int request_count;
     int user = static_cast<int>(Instance::Objective::User);
     int owner = static_cast<int>(Instance::Objective::Owner);

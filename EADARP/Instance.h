@@ -57,7 +57,7 @@ public:
     static Instance& getUnique();
     void loadFromFile(const std::string instance_file_name, int seed);
     void RandomInit(int request_num,int vehicles_num,int stations_num, int max_latitude, int  max_longitude,double planning_horizon, int seed);
-    void computeNadirPoints();
+    void computeExtremePoints();
 
     //Get the start depot associated with a vehicle
     Node* getDepot(EAV* vehicle,std::string start_or_end);
