@@ -63,7 +63,7 @@ void Solution::Display(int i) {
         }
     }
     else if (i == 1) {
-        printf("%f\n",AugmentedTchebycheff(0.3));
+        printf("%f\n",AugmentedTchebycheff(0.0));
     }
     else {
         printf("(");
@@ -233,7 +233,7 @@ double Solution::getInsertionCost(Request* r, Position p, Instance::Objective ob
         break;
     }
     default: {
-        current_cost = AugmentedTchebycheff(0.3);
+        current_cost = AugmentedTchebycheff(0.0);
         old_route = routes[p.vehicle];
         test_route = old_route;
         if (p.charging_station != nullptr) {
@@ -242,7 +242,7 @@ double Solution::getInsertionCost(Request* r, Position p, Instance::Objective ob
         test_route.insertRequest(r, p.origin_pos + 1, p.dest_pos + 1);
         test_route.updateMetrics();
         addRoute(test_route);
-        new_cost = AugmentedTchebycheff(0.3);
+        new_cost = AugmentedTchebycheff(0.0);
         cost = new_cost - current_cost;
         addRoute(old_route);
     }

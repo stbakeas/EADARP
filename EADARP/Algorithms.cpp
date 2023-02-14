@@ -24,7 +24,7 @@ namespace algorithms {
 	bool SimulatedAnnealingAcceptanceCriterion(const Solution& candidate,const Solution& incumbent, int current_temperature) {
 		std::random_device rd;
 		RandLib randlib(rd());
-		double diff = incumbent.AugmentedTchebycheff(0.3) - candidate.AugmentedTchebycheff(0.3);
+		double diff = incumbent.AugmentedTchebycheff(0.0) - candidate.AugmentedTchebycheff(0.0);
 		if (diff == 0) return false;
 		double acceptance_probability = pow(2.71828,diff / current_temperature);
 		double p = randlib.unifrnd(0.0, 1.0);
@@ -81,23 +81,23 @@ namespace algorithms {
 
 			s = Repair(s, Instance::Objective::NumberOfObjectives);
 
-			double before = s.AugmentedTchebycheff(0.3);
+			double before = s.AugmentedTchebycheff(0.0);
 			exchangeOrigin(s, NeighborChoice::BEST);
 			exchangeDestination(s, NeighborChoice::BEST);
 			exchangeConsecutive(s, NeighborChoice::BEST);
 			moveStation(s, NeighborChoice::BEST);
-			double after = s.AugmentedTchebycheff(0.3);
+			double after = s.AugmentedTchebycheff(0.0);
 			if (after < before) statistics[2]++;
 
-			if (s.AugmentedTchebycheff(0.3) < incumbent.AugmentedTchebycheff(0.3)) {
+			if (s.AugmentedTchebycheff(0.0) < incumbent.AugmentedTchebycheff(0.0)) {
 				incumbent = s;
-				if (s.AugmentedTchebycheff(0.3) < run.best.AugmentedTchebycheff(0.3)) {
+				if (s.AugmentedTchebycheff(0.0) < run.best.AugmentedTchebycheff(0.0)) {
 					run.best = s;
 					statistics[0]++;
 				}
 			}
 			iter++;
-			//printf("%u\n",iter);
+			printf("%u\n",iter);
 			if (iter > statistics[1]) statistics[1] = iter;
 			double elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
 			run.elapsed_seconds = elapsed/1000.0;
@@ -131,11 +131,11 @@ namespace algorithms {
 			for (Move move : neighborhoods) {
 				candidate = move(incumbent, NeighborChoice::RANDOM);
 				candidate.FixHardConstraints();
-				if (candidate.AugmentedTchebycheff(0.3) < incumbent.AugmentedTchebycheff(0.3) + threshold)
+				if (candidate.AugmentedTchebycheff(0.0) < incumbent.AugmentedTchebycheff(0.0) + threshold)
 					incumbent = candidate;
 			}
 			incumbent = Repair(incumbent,Instance::Objective::NumberOfObjectives);
-			if (incumbent.AugmentedTchebycheff(0.3) < run.best.AugmentedTchebycheff(0.3)) {
+			if (incumbent.AugmentedTchebycheff(0.0) < run.best.AugmentedTchebycheff(0.0)) {
 				run.best = incumbent;
 				i_imp = 0;
 			}
@@ -179,7 +179,7 @@ namespace algorithms {
 			int vehicle_index = randlib.randint(0, available_vehicles.size() - 1);
 			int example_route_size = s.routes[available_vehicles[vehicle_index]].path.size();
 			int reserve_size = available_vehicles.size() * example_route_size * (example_route_size - 1) / 2;
-
+		
 			std::vector<Position> strong_batset;
 			strong_batset.reserve(reserve_size);
 			std::vector<Position> weak_batset;
@@ -187,10 +187,9 @@ namespace algorithms {
 			std::vector<Position> capset;
 			capset.reserve(reserve_size);
 			for (EAV* v : available_vehicles) {
-				if (r->forbidden_vehicles[user].contains(v->id) &&
-					r->percentages[user][r->forbidden_vehicles[user][v->id]] < std::min(1.0f, inst.controlParameter * s.weights[user]))
-						continue;
-				if (r->forbidden_vehicles[owner].contains(v->id)) continue;
+				if (r->forbidden_vehicles[owner].contains(v->id) ||
+					r->forbidden_vehicles[user].contains(v->id)) continue;
+
 				bool batteryNotFound = true;
 				size_t length = s.routes[v].path.size();
 				for (size_t i = 0; i < length-1; ++i)
@@ -434,7 +433,7 @@ namespace algorithms {
 					if (new_route.isFeasible()) {
 						Solution new_solution = solution;
 						new_solution.addRoute(new_route);
-						if (new_solution.AugmentedTchebycheff(0.3) < solution.AugmentedTchebycheff(0.3)) {
+						if (new_solution.AugmentedTchebycheff(0.0) < solution.AugmentedTchebycheff(0.0)) {
 							solution = new_solution;
 							last_assigned_user[new_route.vehicle] = r;
 							insertionFailed = false;
@@ -462,6 +461,7 @@ namespace algorithms {
 				return v1->acquisition_cost < v2->acquisition_cost;
 			});
 
+			std::shuffle(unassigned.begin(), unassigned.end(), std::random_device());
 			for (EAV* v : vehicles) {
 				for (int i = 0; i < unassigned.size();i++) {
 					Route newRoute = PairInsertion(unassigned[i], solution, { v }, Instance::Objective::NumberOfObjectives, true);
@@ -506,7 +506,7 @@ namespace algorithms {
 											s = neighbor;
 											return;
 										}
-										if (neighbor.AugmentedTchebycheff(0.3) < best.AugmentedTchebycheff(0.3)) {
+										if (neighbor.AugmentedTchebycheff(0.0) < best.AugmentedTchebycheff(0.0)) {
 											if (strategy == NeighborChoice::FIRST) {
 												s = neighbor;
 												return;
@@ -572,7 +572,7 @@ namespace algorithms {
 									    neighbor.addRoute(new_r1);
 									    neighbor.addRoute(new_r2);
 									    if (strategy == NeighborChoice::RANDOM) return neighbor;
-									    if (new_r1.isFeasible() && new_r2.isFeasible() && neighbor.AugmentedTchebycheff(0.3) < best.AugmentedTchebycheff(0.3)) {
+									    if (new_r1.isFeasible() && new_r2.isFeasible() && neighbor.AugmentedTchebycheff(0.0) < best.AugmentedTchebycheff(0.0)) {
 									    	if (strategy == NeighborChoice::FIRST) return neighbor;
 									    	best = neighbor; 
 									    }
@@ -640,7 +640,7 @@ namespace algorithms {
 								Solution neighbor = s;
 								neighbor.addRoute(new_r1);
 								neighbor.addRoute(new_r2);
-								if (neighbor.AugmentedTchebycheff(0.3) < best.AugmentedTchebycheff(0.3)) best = neighbor;
+								if (neighbor.AugmentedTchebycheff(0.0) < best.AugmentedTchebycheff(0.0)) best = neighbor;
 							}
 
 						}
@@ -677,7 +677,7 @@ namespace algorithms {
 						neighbor.addRoute(removal_route);
 						neighbor.addRoute(insertion_route);
 						if (strategy == NeighborChoice::RANDOM) return neighbor;
-						if (insertion_route.isFeasible() && neighbor.AugmentedTchebycheff(0.3) < best.AugmentedTchebycheff(0.3))
+						if (insertion_route.isFeasible() && neighbor.AugmentedTchebycheff(0.0) < best.AugmentedTchebycheff(0.0))
 						{
 							if (strategy == NeighborChoice::FIRST) return neighbor;
 							best = neighbor;
@@ -725,7 +725,7 @@ namespace algorithms {
 										neighbor.addRoute(new_route_1);
 										neighbor.addRoute(new_route_2);
 										if (isRandom) return neighbor;
-										if (new_route_1.isFeasible() && new_route_2.isFeasible() && neighbor.AugmentedTchebycheff(0.3) < best.AugmentedTchebycheff(0.3)) {
+										if (new_route_1.isFeasible() && new_route_2.isFeasible() && neighbor.AugmentedTchebycheff(0.0) < best.AugmentedTchebycheff(0.0)) {
 											if (strategy == NeighborChoice::FIRST) return neighbor;
 											best = neighbor;
 										}
@@ -766,7 +766,7 @@ namespace algorithms {
 							neighbor.rejected.push_back(assigned);
 							neighbor.addRoute(new_route);
 							if (isRandom) return neighbor;
-							if (new_route.isFeasible() && neighbor.AugmentedTchebycheff(0.3) < best.AugmentedTchebycheff(0.3)) {
+							if (new_route.isFeasible() && neighbor.AugmentedTchebycheff(0.0) < best.AugmentedTchebycheff(0.0)) {
 								if (strategy == NeighborChoice::FIRST) return neighbor;
 								best = neighbor;
 							}
@@ -800,7 +800,7 @@ namespace algorithms {
 						neighbor.addRoute(r1);
 						neighbor.addRoute(r2);
 						if (isRandom) return neighbor;
-						if (r1.isFeasible() && r2.isFeasible() && neighbor.AugmentedTchebycheff(0.3) < best.AugmentedTchebycheff(0.3)) {
+						if (r1.isFeasible() && r2.isFeasible() && neighbor.AugmentedTchebycheff(0.0) < best.AugmentedTchebycheff(0.0)) {
 							if (strategy == NeighborChoice::FIRST) return neighbor;
 							best = neighbor;
 						} 
@@ -837,7 +837,7 @@ namespace algorithms {
 							s=neighbor; 
 							return;
 						}
-						if (route.isFeasible() && neighbor.AugmentedTchebycheff(0.3) < best.AugmentedTchebycheff(0.3)) {
+						if (route.isFeasible() && neighbor.AugmentedTchebycheff(0.0) < best.AugmentedTchebycheff(0.0)) {
 							if (strategy == NeighborChoice::FIRST) {
 								s = neighbor;
 								return;
@@ -878,7 +878,7 @@ namespace algorithms {
 							return;
 						}
 
-						if (route.isFeasible() && neighbor.AugmentedTchebycheff(0.3) < best.AugmentedTchebycheff(0.3)) {
+						if (route.isFeasible() && neighbor.AugmentedTchebycheff(0.0) < best.AugmentedTchebycheff(0.0)) {
 							if (strategy == NeighborChoice::FIRST) {
 								s = neighbor;
 								return;
@@ -917,7 +917,7 @@ namespace algorithms {
 							s = neighbor;
 							return;
 						}
-						if (route.isFeasible() && neighbor.AugmentedTchebycheff(0.3) < best.AugmentedTchebycheff(0.3)) {
+						if (route.isFeasible() && neighbor.AugmentedTchebycheff(0.0) < best.AugmentedTchebycheff(0.0)) {
 							if (strategy == NeighborChoice::FIRST)
 							{
 								s = neighbor;
@@ -963,7 +963,7 @@ namespace algorithms {
 								neighbor.addRoute(r1);
 								neighbor.addRoute(r2);
 								if (isRandom) return neighbor;
-								if (r1.isFeasible() && r2.isFeasible() && neighbor.AugmentedTchebycheff(0.3) < best.AugmentedTchebycheff(0.3)) {
+								if (r1.isFeasible() && r2.isFeasible() && neighbor.AugmentedTchebycheff(0.0) < best.AugmentedTchebycheff(0.0)) {
 									if (strategy == NeighborChoice::FIRST) return neighbor;
 									best = neighbor;
 								}
@@ -1008,12 +1008,12 @@ namespace algorithms {
 						}
 						case Instance::Objective::NumberOfObjectives:
 						{
-							old_cost = current_solution.AugmentedTchebycheff(0.3);
+							old_cost = current_solution.AugmentedTchebycheff(0.0);
 							new_route = current_solution.routes[v];
 							new_route.removeRequest(r);
 							new_route.updateMetrics();
 							current_solution.addRoute(new_route);
-							new_cost = current_solution.AugmentedTchebycheff(0.3);
+							new_cost = current_solution.AugmentedTchebycheff(0.0);
 							cost = old_cost - new_cost;
 							break;
 						}
@@ -1072,14 +1072,57 @@ namespace algorithms {
 				else if (notFound && pair.second != nullptr) {
 					new_route = PairInsertion(pair.first, s, { pair.second },objective,true);
 					if (new_route.isFeasible()) s.addRoute(new_route);
-					else s.rejected.push_back(pair.first);
+					else s = rejectedReinsertion(pair.first, s);
 				}
 				s.removed.erase(s.removed.begin() + index);
 			}
 			return s;
-		}	
-		
+		}
+
+		Solution rejectedReinsertion(Request* r, Solution s)
+		{
+			// Request ID, Vehicle It Is Assigned To
+			std::unordered_map<int, EAV*> assignment;
+			for (const auto& [vehicle, route] : s.routes) {
+				for (Request* req : route.requests) {
+					assignment[req->origin->id] = vehicle;
+				}
+			}
+
+			std::vector<Request*> assigned;
+			assigned.reserve(inst.requests.size());
+			for (const auto& [reqId, vehicle] : assignment)
+				assigned.push_back(inst.getRequest(inst.nodes[reqId - 1]));
+			
+			std::sort(assigned.begin(), assigned.end(), [r](Request* a,Request* b) {
+				return inst.similarity[r->origin->id - 1][a->origin->id - 1] <
+					inst.similarity[r->origin->id - 1][b->origin->id - 1];
+			});
+
+			for (Request* req : assigned) {
+				
+				Route route = s.routes[assignment[req->origin->id]];
+				std::pair<size_t, size_t> position = route.getRequestPosition(req);
+				route.removeRequest(req);
+				route.updateMetrics();
+				route.insertRequest(r, position.first, position.second-1);
+				route.updateMetrics();
+				if (route.isFeasible()) {
+					Solution neighbor = s;
+					neighbor.addRoute(route);
+					Route new_route = PairInsertion(req, neighbor,inst.vehicles, Instance::Objective::NumberOfObjectives, true);
+					if (new_route.isFeasible()) {
+						neighbor.addRoute(new_route);
+						if (neighbor.AugmentedTchebycheff(0.0) < s.AugmentedTchebycheff(0.0))
+							return neighbor;
+					}
+				}
+			}
+			s.rejected.push_back(r);
+			return s;
+		}
 	}
 }
+
 
 

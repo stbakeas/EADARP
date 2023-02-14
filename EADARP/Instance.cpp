@@ -304,6 +304,7 @@ void Instance::loadFromFile(const std::string instance_file_name, int seed) {
     }
 
     createDistanceMatrix();
+    createSimilarityMatrix();
     for (Request* r : requests) {
         r->reward = r->origin->load*getTravelTime(r->origin, r->destination);
     }
@@ -342,6 +343,49 @@ void Instance::computeExtremePoints() {
     ideal[2] = 0.0;
 }
 
+void Instance::createSimilarityMatrix()
+{
+    //Request Similarity
+    std::pair<int, int> loadDifference = { INT_MAX,0 };
+    std::pair<double, double> timeWindow = { DBL_MAX,0.0 };
+    std::pair<double, double> distances = { DBL_MAX,0.0 };
+
+    for (Request* r1 : requests) {
+        for (Request* r2 : requests) {
+            if (r1->origin->id != r2->origin->id) {
+                int loadDiff = abs(r1->origin->load - r2->origin->load);
+                if (loadDiff < loadDifference.first) loadDifference.first = loadDiff;
+                if (loadDiff > loadDifference.second) loadDifference.second = loadDiff;
+
+                double timeWindowRelatedness = abs(r1->origin->earliest - r2->origin->earliest) + abs(r1->origin->latest - r2->origin->latest) +
+                    abs(r1->destination->latest - r2->destination->latest) + abs(r1->destination->earliest - r2->destination->earliest);
+                if (timeWindowRelatedness < timeWindow.first) timeWindow.first = timeWindowRelatedness;
+                if (timeWindowRelatedness > timeWindow.second) timeWindow.second = timeWindowRelatedness;
+
+                double dist = inst.getTravelTime(r1->origin, r2->origin) + inst.getTravelTime(r1->destination, r2->destination);
+                if (dist < distances.first) distances.first = dist;
+                if (dist > distances.second) distances.second = dist;
+            }
+        }
+    }
+    similarity.resize(requests.size());
+    for (Request* r1 : requests) {
+        similarity[r1->origin->id - 1].resize(requests.size());
+        for (Request* r2 : requests) {
+            int normloadDiff = (abs(r1->origin->load - r2->origin->load) - loadDifference.first) / (loadDifference.second - loadDifference.first);
+
+            double normtimeWindowRelatedness = (abs(r1->origin->earliest - r2->origin->earliest) + abs(r1->origin->latest - r2->origin->latest) +
+                abs(r1->destination->latest - r2->destination->latest) + abs(r1->destination->earliest - r2->destination->earliest) - timeWindow.first) /
+                (timeWindow.second - timeWindow.first);
+
+            double normDist = (inst.getTravelTime(r1->origin, r2->origin) + inst.getTravelTime(r1->destination, r2->destination) - distances.first) /
+                (distances.second - distances.first);
+            similarity[r1->origin->id - 1][r2->origin->id - 1] = normloadDiff + normtimeWindowRelatedness + normDist;
+
+        }
+    }
+}
+
 void Instance::Preprocessing() {
    
     //Arc Elimination
@@ -357,8 +401,8 @@ void Instance::Preprocessing() {
                     (nodes[i]->isDestination() && nodes[j]->isOrigin() && i == j + n)
                     )
                     distanceMatrix[i][j] = DBL_MAX;
-                    
             } 
+
         }
     }
     
@@ -437,6 +481,7 @@ void Instance::Preprocessing() {
         }
     }
 
+    
 }
 
 Instance& Instance::getUnique()

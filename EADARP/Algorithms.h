@@ -98,7 +98,11 @@ namespace algorithms
 		Solution Destroy(Solution s, double removal_ratio, double randomness, Instance::Objective objective);
 		
 		Solution Repair(Solution s,Instance::Objective objective);
-		
+
+		/*
+		Proposed by Ying Luo and Paul Schonfeld in 2007
+		*/
+		Solution rejectedReinsertion(Request* r,Solution s);
     } 
 }
 

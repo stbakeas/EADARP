@@ -30,6 +30,7 @@ public:
 	std::unordered_map<EAV*, Route> routes;
 	std::vector<Request*> rejected;
 	std::vector<std::pair<Request*, EAV*>> removed;
+
 	std::array<double, static_cast<int>(Instance::Objective::NumberOfObjectives)> objective_value;
 	std::array<float, static_cast<int>(Instance::Objective::NumberOfObjectives)> weights = { 0.25,0.25,0.5 };
 	void SetWeights(const std::array<float,static_cast<int>(Instance::Objective::NumberOfObjectives)>& values);

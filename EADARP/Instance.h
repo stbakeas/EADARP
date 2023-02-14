@@ -28,7 +28,12 @@ private:
      */
     void createDistanceMatrix();
 
-    //Arc Elimination and Time Window Tightening
+    /*
+     * Compute how similar two different requests are.
+     */
+    void createSimilarityMatrix();
+
+    //Arc Elimination, Vehicle Incompatibility, Request Similarity Matrix
     void Preprocessing();
 
 public:
@@ -41,6 +46,7 @@ public:
     std::vector<Request*> requests;
     std::vector<CStation*> charging_stations;
     std::vector<std::vector<double>> distanceMatrix;
+    std::vector<std::vector<double>> similarity;
     int controlParameter;
     double maxDistance;
     int numberOfDepots;

@@ -75,7 +75,7 @@ Configuration FRace(std::vector<Configuration> candidates,std::vector<std::pair<
 		for (int i:candidateIndices) {
 			run = algorithms::IteratedGreedy
 			(init, candidates[i][0], 300, candidates[i][1], candidates[i][2]);
-			double performance = run.best.AugmentedTchebycheff(0.3) + 0.5 * run.elapsed_seconds;
+			double performance = run.best.AugmentedTchebycheff(0.0) + 0.5 * run.elapsed_seconds;
 			//Append the cost of executing candidate i in randomInstance to CostMatrix
 			CostMatrix[i].push_back(performance);
 			block.push_back(performance);
@@ -146,7 +146,7 @@ void VehicleExclusionImpact() {
 			for (int j = 0; j < 5; j++) {
 				Run run = algorithms::IteratedGreedy(algorithms::details::Init1(), 100, INT_MAX,7,0.1);
 				avgTime += run.elapsed_seconds;
-				avgCost += run.best.AugmentedTchebycheff(0.3);
+				avgCost += run.best.AugmentedTchebycheff(0.0);
 			}
 			avgTime /= 5;
 			avgCost /= 5;
@@ -165,6 +165,7 @@ int main() {
 	inst.loadFromFile("Instances-MDHDARP/a10-100hetIUY.txt", 3);
 	inst.controlParameter = 4;
 	Solution init = algorithms::details::Init4();
-	init.Display(2);
+	Run run = algorithms::IteratedGreedy(init, 100, INT_MAX, 7, 0.1);
+	run.best.Display(0);
 	return EXIT_SUCCESS;
 }
