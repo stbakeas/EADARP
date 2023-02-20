@@ -43,6 +43,9 @@ public:
 	Request* selectRandomRequest(RandLib randlib);
 	bool isInsertionCapacityFeasible(Request* request, int i, int j) const;
 	bool isInsertionBatteryFeasible(Request* request, int i, int j,bool increaseChargingTime);
+
+	//With respect to the vehicle return time.
+	bool isInsertionTimeFeasible(Request* request, int i, int j);
 	std::pair<size_t, size_t> getRequestPosition(const Request* r);
 	double getEarliestTime(int i); //Get the earliest time that node in position i in the route can be served
 	int getLoad(int i); //Get the load at position i

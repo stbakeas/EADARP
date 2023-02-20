@@ -160,12 +160,43 @@ void VehicleExclusionImpact() {
 	}
 }
 
-int main() {
-
+void ValidityCheck() {
 	inst.loadFromFile("Instances-MDHDARP/a10-100hetIUY.txt", 3);
+	inst.controlParameter = 4;
+	Solution init;
+	init.AddDepots();
+
+	CStation* cs = inst.charging_stations[0];
+
+	init.routes[inst.vehicles[1]].insertNode(inst.nodes[cs->id - 1], 1);
+	init.routes[inst.vehicles[1]].updateMetrics();
+
+	init.routes[inst.vehicles[1]].insertRequest(inst.requests[5], 1, 1);
+	init.routes[inst.vehicles[1]].updateMetrics();
+
+	init.routes[inst.vehicles[1]].insertRequest(inst.requests[2], 3, 3);
+	init.routes[inst.vehicles[1]].updateMetrics();
+
+	init.routes[inst.vehicles[1]].isInsertionTimeFeasible(inst.requests[9], 3,4);
+	init.routes[inst.vehicles[1]].insertRequest(inst.requests[9], 4, 5);
+	init.routes[inst.vehicles[1]].updateMetrics();
+
+	printf("%f", init.routes[inst.vehicles[1]].arrival_times.back());
+}
+
+int main() {
+	ValidityCheck();
+	/*inst.loadFromFile("Instances-MDHDARP/a10-100hetIUY.txt", 3);
 	inst.controlParameter = 4;
 	Solution init = algorithms::details::Init4();
 	Run run = algorithms::IteratedGreedy(init, 100, INT_MAX, 7, 0.1);
-	run.best.Display(0);
+	run.init.Display(2);*/
+
+	/*double difference = run.init.AugmentedTchebycheff(0.0) - run.best.AugmentedTchebycheff(0.0);
+	double improvement = 100.0 * (difference / run.init.AugmentedTchebycheff(0.0));
+	cout << run.init.AugmentedTchebycheff(0.0) << "\n";
+	cout << run.best.AugmentedTchebycheff(0.0) << "\n";
+	cout << difference << "\n";
+	cout << improvement << "\n";*/
 	return EXIT_SUCCESS;
 }

@@ -210,22 +210,23 @@ namespace algorithms {
 							
 						}
 						double added_distance = s.routes[v].getAddedDistance(r, i, j);
-						if (s.routes[v].isInsertionCapacityFeasible(r, i, j))
-						{
-							capset.emplace_back(v, i, j, nullptr, -1);
-							capset.back().setAddedDistance(added_distance);
-							if (s.routes[v].isInsertionBatteryFeasible(r, i, j, false)) {
-								strong_batset.emplace_back(v, i, j, nullptr, -1);
-								strong_batset.back().setAddedDistance(added_distance);
-								batteryNotFound = false;
-							}
-							else if (s.routes[v].isInsertionBatteryFeasible(r, i, j, true)) {
-								weak_batset.emplace_back(v, i, j, nullptr, -1);
-								weak_batset.back().setAddedDistance(added_distance);
-								batteryNotFound = false;
-							}
-							
+						if (s.routes[v].isInsertionTimeFeasible(r, i, j)) {
+							if (s.routes[v].isInsertionCapacityFeasible(r, i, j))
+							{
+								capset.emplace_back(v, i, j, nullptr, -1);
+								capset.back().setAddedDistance(added_distance);
+								if (s.routes[v].isInsertionBatteryFeasible(r, i, j, false)) {
+									strong_batset.emplace_back(v, i, j, nullptr, -1);
+									strong_batset.back().setAddedDistance(added_distance);
+									batteryNotFound = false;
+								}
+								else if (s.routes[v].isInsertionBatteryFeasible(r, i, j, true)) {
+									weak_batset.emplace_back(v, i, j, nullptr, -1);
+									weak_batset.back().setAddedDistance(added_distance);
+									batteryNotFound = false;
+								}
 
+							}
 						}
 					}
 				}
@@ -267,22 +268,22 @@ namespace algorithms {
 											continue;
 									}
 									double added_distance = s.routes[v].getAddedDistance(r, i, j);
-									if (s.routes[v].isInsertionCapacityFeasible(r, i, j))
-									{
-										capset.emplace_back(v, i, j, nullptr, -1);
-										capset.back().setAddedDistance(added_distance);
-										if (s.routes[v].isInsertionBatteryFeasible(r, i, j, false)) {
-											strong_batset.emplace_back(v, i, j, nullptr, -1);
-											strong_batset.back().setAddedDistance(added_distance);
-											positionFound = true;
+									if (s.routes[v].isInsertionTimeFeasible(r, i, j)) {
+										if (s.routes[v].isInsertionCapacityFeasible(r, i, j))
+										{
+											capset.emplace_back(v, i, j, nullptr, -1);
+											capset.back().setAddedDistance(added_distance);
+											if (s.routes[v].isInsertionBatteryFeasible(r, i, j, false)) {
+												strong_batset.emplace_back(v, i, j, nullptr, -1);
+												strong_batset.back().setAddedDistance(added_distance);
+												positionFound = true;
+											}
+											else if (s.routes[v].isInsertionBatteryFeasible(r, i, j, true)) {
+												weak_batset.emplace_back(v, i, j, nullptr, -1);
+												weak_batset.back().setAddedDistance(added_distance);
+												positionFound = true;
+											}
 										}
-										else if (s.routes[v].isInsertionBatteryFeasible(r, i, j, true)) {
-											weak_batset.emplace_back(v, i, j, nullptr, -1);
-											weak_batset.back().setAddedDistance(added_distance);
-											positionFound = true;
-										}
-
-
 									}
 								}
 							}
@@ -471,6 +472,7 @@ namespace algorithms {
 					}
 				}
 			}
+
 			solution.rejected = unassigned;
 			return solution;
 		}
@@ -1114,7 +1116,9 @@ namespace algorithms {
 					if (new_route.isFeasible()) {
 						neighbor.addRoute(new_route);
 						if (neighbor.AugmentedTchebycheff(0.0) < s.AugmentedTchebycheff(0.0))
+						{
 							return neighbor;
+						}
 					}
 				}
 			}
