@@ -20,14 +20,8 @@ public:
 	std::unordered_map<Node*, int> node_indices;
 	EAV* vehicle;
 	std::vector<Node*> path;
-	std::vector<double> arrival_times;
-	std::vector<double> modified_start_of_service_times;
-	std::vector<double> departure_times;
-	std::vector<double> waiting_times;
 	std::vector<double> start_of_service_times;
-	std::vector<double> ride_times;
 	std::unordered_map<CStation*, double> charging_times;
-	std::vector<double> stay_times;
 	std::vector<int> loads;
 	std::vector<double> battery;
 	std::unordered_map<CStation*, bool> assigned_cs;
@@ -47,11 +41,12 @@ public:
 	//With respect to the vehicle return time.
 	bool isInsertionTimeFeasible(Request* request, int i, int j);
 	std::pair<size_t, size_t> getRequestPosition(const Request* r);
-	double getEarliestTime(int i); //Get the earliest time that node in position i in the route can be served
 	int getLoad(int i); //Get the load at position i
+	double getWaitingTime(int index);
+	double getRideTime(int index);
 	double getDuration(); //Get the route's total duration
-	double getAddedDistance(Node* node, int i,Measure measure=Measure::Distance) const; //For a single node
-	double getAddedDistance(Request* request, int i, int j, Measure measure = Measure::Distance) const; //For a request
+	double getAddedDistance(Node* node, int i) const; //For a single node
+	double getAddedDistance(Request* request, int i, int j) const; //For a request
 	double get_forward_time_slack(int i);
 	CStation* findBestChargingStationAfter(int i);
 
@@ -62,13 +57,7 @@ public:
 	void deleteRedundantChargingStations();
 	void computeChargingTime(int nodePosition);
 	void computeLoad(int i);
-	void computeArrivalTime(int i);
-	void computeModifiedStartOfServiceTime(int i);
 	void computeStartOfServiceTime(int i);
-	void computeWaitingTime(int i);
-	void computeDepartureTime(int i);
-	void computeRideTime(int i);
-	void computeStayTime(int i);
 	void computeBatteryLevel(int i);
 	void computeTotalCost();
 	void insertNode(Node* node, int index);
