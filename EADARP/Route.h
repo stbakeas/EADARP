@@ -10,7 +10,6 @@
 class Route {
 public:
 	enum class ChargingPolicy{FULL,MINIMAL,CONSERVATIVE};
-	enum class Measure{Time,Distance,Battery};
 	bool batteryFeasible;
 	bool capacityFeasible;
 	bool timeFeasible;
@@ -26,9 +25,7 @@ public:
 	std::vector<double> battery;
 	std::unordered_map<CStation*, bool> assigned_cs;
 	std::vector<std::pair<int, int>> natural_sequences;
-
-	double cost[3];
-
+	double cost;
 	Route() {};
 	Route(EAV* vehicle);
 	bool isEmpty(); //Check if the route contains absolutely no nodes

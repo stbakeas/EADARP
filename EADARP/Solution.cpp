@@ -6,8 +6,7 @@
 #include <map>
 
 Solution::Solution(){
-    for (size_t i = 0; i < 2; i++) objective_value[i] = 0.0;
-    objective_value[2] = inst.requests.size();
+    cost = 0.0;
     rejected.reserve(inst.requests.size());
     removed.reserve(inst.requests.size()/2);
 }
@@ -17,24 +16,11 @@ float float_one_point_round(float value)
     return ((float)((int)(value * 10))) / 10;
 }
 
-void Solution::SetWeights(const std::array<float,static_cast<int>(Instance::Objective::NumberOfObjectives)>& values) {
-    weights[0] = values[0];
-    weights[1] = values[1];
-    weights[2] = values[2];
-}
-
 void Solution::addRoute(Route r)
 {
     // In case we are updating the vehicle's route...
-    if (routes.find(r.vehicle) != routes.end())
-    {
-        for (auto objective : inst.objectives) 
-            objective_value[static_cast<int>(objective)] -= routes[r.vehicle].cost[static_cast<int>(objective)];
-        
-    }
-    for (auto objective : inst.objectives) objective_value[static_cast<int>(objective)] += r.cost[static_cast<int>(objective)];
-    if (objective_value[static_cast<int>(Instance::Objective::User)] > inst.nadir[static_cast<int>(Instance::Objective::User)])
-        inst.nadir[static_cast<int>(Instance::Objective::User)] = objective_value[static_cast<int>(Instance::Objective::User)];
+    if (routes.contains(r.vehicle)) cost -= routes[r.vehicle].cost;
+    cost += r.cost;
     routes[r.vehicle] = r;
 }
 
@@ -62,14 +48,7 @@ void Solution::Display(int i) {
             printf("\n\n");
         }
     }
-    else if (i == 1) {
-        printf("%f\n",AugmentedTchebycheff(0.0));
-    }
-    else {
-        printf("(");
-        for (int i = 0; i < 2; i++) printf("%f%s", objective_value[i], ",");
-        printf("%f%s", objective_value[2], ")");
-    }
+    else printf("%f\n",cost);
 }
 
 void Solution::AddDepots()
@@ -158,116 +137,20 @@ void Solution::FixHardConstraints() {
     }
 }
 
-double Solution::AugmentedTchebycheff(const double& rho) const {
-    std::vector<double> deviations(3);
-    double maxValue = 0.0;
-    double augmentation = 0.0;
-    double first_scale;
-    for (size_t i = 0; i < 3; i++) { 
-        deviations[i]=(objective_value[i] - inst.ideal[i])/(inst.nadir[i]-inst.ideal[i]);
-        first_scale = weights[i] * deviations[i];
-        augmentation += first_scale;
-        if (first_scale > maxValue) maxValue = first_scale;
-    }
-    return maxValue + rho * augmentation;
-}
-
-double Solution::WeightedSum() {
-    double sum = 0.0;
-    for (auto objective : inst.objectives) {
-        sum += weights[static_cast<int>(objective)] * (objective_value[static_cast<int>(objective)] - inst.ideal[static_cast<int>(objective)])
-            / (inst.nadir[static_cast<int>(objective)] - inst.ideal[static_cast<int>(objective)]);
-            
-    }
-    return sum;
-}
-
-double Solution::distanceFrom(Solution s, bool objectiveSpace) {
-    double distance = 0.0;
-    if (objectiveSpace) {
-        for (int i = 0; i < 3; i++) distance += abs(objective_value[i] - s.objective_value[i]);
-    }
-    else 
-    {
-        for (EAV* v : inst.vehicles) {
-            std::vector<Request*> all_requests = s.routes[v].requests;
-            std::vector<Request*> this_requests = routes[v].requests;
-            all_requests.insert(all_requests.end(), this_requests.begin(), this_requests.end());
-            std::map<int, int> frequency;
-            for (const auto& req : all_requests) frequency[req->origin->id]++;
-            for (const auto& pair : frequency) {
-                if (pair.second > 1) {
-                    Request* r = inst.getRequest(inst.nodes.at(pair.first - 1));
-                    all_requests.erase(std::remove(all_requests.begin(), all_requests.end(), r), all_requests.end());
-                }
-            }
-            distance += all_requests.size();
-
-        }
-
-    }
-    return distance;
-}
-
-double Solution::getInsertionCost(Request* r, Position p, Instance::Objective objective) {
+double Solution::getInsertionCost(Request* r, Position p) {
     
-    double current_cost,new_cost,cost;
+    double current_cost, new_cost;
     Route old_route, test_route;
-    switch (objective) {
-    case Instance::Objective::User: {
-        current_cost = objective_value[static_cast<int>(objective)];
-        old_route = routes[p.vehicle];
-        test_route = old_route;
-        if (p.charging_station != nullptr) {
-            test_route.insertNode(inst.nodes[p.charging_station->id - 1], p.cs_pos + 1);
-        }
-        test_route.insertRequest(r, p.origin_pos + 1, p.dest_pos + 1);
-        test_route.updateMetrics();
-        addRoute(test_route);
-        new_cost = objective_value[static_cast<int>(objective)];
-        cost = new_cost - current_cost;
-        addRoute(old_route);
-        break;
-    }
-    case Instance::Objective::Owner: {
-        break;
-    }
-    default: {
-        current_cost = AugmentedTchebycheff(0.0);
-        old_route = routes[p.vehicle];
-        test_route = old_route;
-        if (p.charging_station != nullptr) {
-            test_route.insertNode(inst.nodes[p.charging_station->id - 1], p.cs_pos + 1);
-        }
-        test_route.insertRequest(r, p.origin_pos + 1, p.dest_pos + 1);
-        test_route.updateMetrics();
-        addRoute(test_route);
-        new_cost = AugmentedTchebycheff(0.0);
-        cost = new_cost - current_cost;
-        addRoute(old_route);
-    }
-    }
-
-    return cost;
+    
+    current_cost = cost;
+    old_route = routes[p.vehicle];
+    test_route = old_route;
+    if (p.charging_station != nullptr) test_route.insertNode(inst.nodes[p.charging_station->id - 1], p.cs_pos + 1);
+    test_route.insertRequest(r, p.origin_pos + 1, p.dest_pos + 1);
+    test_route.updateMetrics();
+    addRoute(test_route);
+    new_cost = cost;
+    addRoute(old_route);
+    return new_cost-current_cost;
 }
 
-bool Solution::dominates(Solution s) {
-    for (int i = 0; i < 3; i++) {
-        if (this->objective_value[i] > s.objective_value[i]) return false;
-    }
-    return true;
-}
-
-bool Solution::operator == (const Solution& s) const {
-    for (int i = 0; i < 3; i++) {
-        if (this->objective_value[i] != s.objective_value[i]) return false;
-    }
-    return true;
-}
-
-bool Solution::operator != (const Solution& s) const {
-    for (int i = 0; i < 3; i++) {
-        if (this->objective_value[i] != s.objective_value[i]) return true;
-    }
-    return false;
-}

@@ -8,12 +8,6 @@
 namespace algorithms
 {
 	enum class NeighborChoice { BEST, FIRST, RANDOM, SMART};
-	
-	/*
-	* Multi-directional Iterated Greedy. Different destruction and construction steps
-	* are designed for each objective.
-	*/
-	Run MDIG(std::vector<Solution> initPop, int max_iterations, int max_seconds);
 
 	Run IteratedGreedy(Solution initial,unsigned int max_iterations, int max_seconds,
 		int removalRandomness,float removalPercentage);
@@ -30,7 +24,7 @@ namespace algorithms
 	    */
 		typedef Solution(*Move)(Solution s, NeighborChoice strategy);
 
-		Route PairInsertion(Request* r,Solution s, std::vector<EAV*> available_vehicles,Instance::Objective objective,bool includeCS=false);
+		Route PairInsertion(Request* r,Solution s, std::vector<EAV*> available_vehicles,bool includeCS=false);
 
 		double DistanceBetweenUsers(Request* r1,Request* r2);
 
@@ -95,10 +89,9 @@ namespace algorithms
 
 		void exchangeConsecutive(Solution& s, NeighborChoice strategy);
 
-		Solution Destroy(Solution s, double removal_ratio, double randomness, Instance::Objective objective);
+		Solution Destroy(Solution s, double removal_ratio, double randomness);
 		
-		Solution Repair(Solution s,Instance::Objective objective);
-
+		Solution Repair(Solution s);
 		/*
 		Proposed by Ying Luo and Paul Schonfeld in 2007
 		*/

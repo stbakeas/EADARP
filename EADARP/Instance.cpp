@@ -43,7 +43,6 @@ void Instance::RandomInit(int request_num, int vehicles_num, int stations_num, i
     charging_stations.reserve(stations_num);
     nodes.reserve(2 * request_num + 2 * vehicles_num + stations_num);
 
-    for (size_t i = 0; i< 3; i++) ideal[i] = 0.0;
     //Create and add requests
     for (int i = 1; i <= request_num; i++)
     {
@@ -147,7 +146,6 @@ void Instance::RandomInit(int request_num, int vehicles_num, int stations_num, i
 
     //We do this to represent a request i by (i,n+i) instead of (i,i+1)
     std::sort(nodes.begin(), nodes.end(), [](const Node* n1, const Node* n2) {return n1->id < n2->id; });
-    computeExtremePoints();
     createDistanceMatrix();
     for (Request* r : requests) r->reward = r->origin->load*getTravelTime(r->origin, r->destination); 
     Preprocessing();
@@ -308,7 +306,6 @@ void Instance::loadFromFile(const std::string instance_file_name, int seed) {
     for (Request* r : requests) {
         r->reward = r->origin->load*getTravelTime(r->origin, r->destination);
     }
-    computeExtremePoints();
     Preprocessing();
 }
 
@@ -326,22 +323,6 @@ void Instance::createDistanceMatrix()
     }
 }
 
-void Instance::computeExtremePoints() {
-
-    nadir[0] = 1.0;
-    ideal[0] = 0.0;
-    
-    //Acquisition costs
-    ideal[1] = 0.0;
-    nadir[1] = 0.0;
-    for (EAV* v : inst.vehicles) { 
-        nadir[1] += v->acquisition_cost;
-    }
-    
-    //Rejected requests
-    nadir[2] = inst.requests.size();
-    ideal[2] = 0.0;
-}
 
 void Instance::createSimilarityMatrix()
 {
@@ -408,80 +389,19 @@ void Instance::Preprocessing() {
     
     //Incompatible request-vehicle pairs
     int request_count;
-    int user = static_cast<int>(Instance::Objective::User);
-    int owner = static_cast<int>(Instance::Objective::Owner);
     for (Request* r : inst.requests){
-        std::set<double> all_violations[2];
         for (EAV* v: inst.vehicles) {
             Node* start_depot = inst.getDepot(v, "start");
             Node* end_depot = inst.getDepot(v, "end");
-            double current_violation[2] = { 0.0,0.0 };
-            if (r->direction == Request::Direction::INBOUND) {
-                for (int stakeholder : {user, owner}) {
-                    if (stakeholder == user) {
-                        current_violation[stakeholder] = v->start_time + inst.getTravelTime(start_depot, r->origin) - r->origin->latest;
-                    }
-                    else {
-                        current_violation[stakeholder] = r->origin->earliest + r->origin->service_duration + inst.getTravelTime(r->origin, r->destination) +
-                            r->destination->service_duration + inst.getTravelTime(r->destination, end_depot) - v->end_time;
-                    }
-                    if (current_violation[stakeholder] > 0) {
-                        if (all_violations[stakeholder].contains(current_violation[stakeholder])) {
-                            current_violation[stakeholder] =
-                                nextafter(current_violation[stakeholder], -std::numeric_limits<double>::infinity());
-                        }
-                        all_violations[stakeholder].insert(current_violation[stakeholder]);
-                        r->forbidden_vehicles[stakeholder][v->id] = current_violation[stakeholder];
-                    }
-
-                }
-            }
-            else {
-                for (int stakeholder : {user, owner}) {
-                    if (stakeholder == user) {
-                        current_violation[stakeholder] = v->start_time + inst.getTravelTime(start_depot, r->origin) + r->origin->service_duration +
-                            inst.getTravelTime(r->origin, r->destination) - r->destination->latest;
-                    }
-                    else {
-                        current_violation[stakeholder] = r->destination->earliest + r->destination->service_duration +
-                            inst.getTravelTime(r->destination, end_depot) - v->end_time;
-                    }
-                    if (current_violation[stakeholder] > 0) {
-                        if (all_violations[stakeholder].contains(current_violation[stakeholder])) {
-                            current_violation[stakeholder] =
-                                nextafter(current_violation[stakeholder], -std::numeric_limits<double>::infinity());
-                        }
-                        all_violations[stakeholder].insert(current_violation[stakeholder]);
-                        r->forbidden_vehicles[stakeholder][v->id] = current_violation[stakeholder];
-                    }
-                }
-                
-            }
+            bool violation_origin = v->start_time + inst.getTravelTime(start_depot, r->origin) > r->origin->latest;
+            bool violation_dest = v->start_time + inst.getTravelTime(start_depot, r->origin) + r->origin->service_duration +
+                inst.getTravelTime(r->origin, r->destination) > r->destination->latest;
+            bool violation_vehicle = std::max(r->destination->earliest, r->origin->earliest + r->origin->service_duration + inst.getTravelTime(r->origin, r->destination))
+                + r->destination->service_duration + inst.getTravelTime(r->destination, end_depot) > v->end_time;
+            if (violation_origin || violation_dest || violation_vehicle) r->forbidden_vehicles.insert(v->id);
         }
-
-        for (int stakeholder : {user, owner}) {
-            int length = r->forbidden_vehicles[stakeholder].size();
-            int counter = 0;
-            for (std::set<double>::reverse_iterator it = all_violations[stakeholder].rbegin(); it != all_violations[stakeholder].rend(); it++) {
-                r->percentages[stakeholder][*it] = float(counter) / float(length);
-                counter++;
-            }
-        }
-        printf("%s%i%s%i%s%i%s\n", "Request " , r->origin->id , " has " , r->forbidden_vehicles[user].size() , " vehicles for user & "
-            , r->forbidden_vehicles[owner].size() , " for owner.");
-
-        
-
-    }
-
-    for (int i = 1; i < 9; i++) {
-        for (int j = 1; j < 9 - i + 1; j++) {
-            std::vector<float> coefficients = { static_cast<float>(i) / 10,static_cast<float>(j) / 10,static_cast<float>(10 - i - j) / 10 };
-            weight_combinations.push_back(coefficients);
-        }
-    }
-
-    
+        printf("%s%i%s%i%s\n", "Request " , r->origin->id , " has " , r->forbidden_vehicles.size() , "forbidden vehicles");
+    } 
 }
 
 Instance& Instance::getUnique()

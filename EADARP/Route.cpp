@@ -105,23 +105,25 @@ void Route::LazyScheduling() {
 
     // STEP 7
     for (int j = 1; j < path.size() - 1; j++) {
-       // STEP 7 (a)
-       double forward_time_slack =get_forward_time_slack(j);
-       
-       
-       
-       // STEP 7 (b)
-       double w_j = getWaitingTime(j);
-       cumul_waiting_time = 0.0;
-       for (int x = j + 1; x < path.size(); x++) cumul_waiting_time += getWaitingTime(x);
-       
-       w_j += std::min(forward_time_slack, cumul_waiting_time);
-       
-       start_of_service_times[j] = start_of_service_times[j - 1] + path[j - 1]->service_duration
-           + inst.getTravelTime(path[j - 1], path[j]) + w_j;
-       
-       // STEP 7 (c):
-       for (int i = j + 1; i < path.size(); i++) computeStartOfServiceTime(i);
+        if (path[j]->isOrigin()) {
+            // STEP 7 (a)
+            double forward_time_slack = get_forward_time_slack(j);
+
+
+
+            // STEP 7 (b)
+            double w_j = getWaitingTime(j);
+            cumul_waiting_time = 0.0;
+            for (int x = j + 1; x < path.size(); x++) cumul_waiting_time += getWaitingTime(x);
+
+            w_j += std::min(forward_time_slack, cumul_waiting_time);
+
+            start_of_service_times[j] = start_of_service_times[j - 1] + path[j - 1]->service_duration
+                + inst.getTravelTime(path[j - 1], path[j]) + w_j;
+
+            // STEP 7 (c):
+            for (int i = j + 1; i < path.size(); i++) computeStartOfServiceTime(i);
+        }
     }
 
 }
@@ -136,7 +138,6 @@ void Route::updateMetrics() {
     battery.resize(n);
     requests.clear();
     if (adaptiveCharging) for (CStation* cs : inst.charging_stations) { assigned_cs[cs] = false; charging_times[cs] = 0; }
-    BasicScheduling();
     for (int i = 0; i < n; i++) {
         node_indices[path[i]] = i;
         computeLoad(i);
@@ -144,7 +145,8 @@ void Route::updateMetrics() {
         if (adaptiveCharging) computeChargingTime(i);
         if (path[i]->isOrigin()) requests.push_back(inst.getRequest(path[i]));
     }
-    if (adaptiveCharging) BasicScheduling();
+    BasicScheduling();
+    LazyScheduling();
     storeNaturalSequences();
     computeTotalCost();
 }
@@ -184,9 +186,8 @@ void Route::computeBatteryLevel(int i) {
 
 void Route::computeTotalCost() {
     int n = path.size();
-    for (auto objective : inst.objectives) cost[static_cast<int>(objective)] = 0.0;
-
-    for (int i = 1; i < n - 1; i++) {
+    cost = 0.0;
+    for (int i = 0; i < n - 1; i++) {
         if (loads[i] > vehicle->capacity) {
             capacityFeasible = false;
             return;
@@ -195,11 +196,7 @@ void Route::computeTotalCost() {
             batteryFeasible = false;
             return;
         }
-        cost[static_cast<int>(Instance::Objective::User)] += std::max(0.0, start_of_service_times[i] - path[i]->latest) +
-            std::max(0.0, getRideTime(i) - path[i]->maximum_travel_time);
     }
-
-    cost[static_cast<int>(Instance::Objective::System)] -= requests.size();
 
     if (loads.back() > vehicle->capacity) {
         capacityFeasible = false;
@@ -214,7 +211,8 @@ void Route::computeTotalCost() {
         return;
     }
     
-    if (!hasNoRequests()) cost[static_cast<int>(Instance::Objective::Owner)] = vehicle->acquisition_cost;
+    if (!hasNoRequests) cost += vehicle->acquisition_cost + start_of_service_times.back() - start_of_service_times.front();
+
 }
 //Inserting node after position i
 double Route::getAddedDistance(Node* node, int i) const {
@@ -389,7 +387,6 @@ bool Route::isInsertionCapacityFeasible(Request* request, int i, int j) const {
         return true;
     }
 }
-
 /*
   Checks that the battery level at the assigned charging stations and the depot is above 0.
   Worst case running time: O(|S|), where S the set of available charging stations. 

@@ -75,7 +75,7 @@ Configuration FRace(std::vector<Configuration> candidates,std::vector<std::pair<
 		for (int i:candidateIndices) {
 			run = algorithms::IteratedGreedy
 			(init, candidates[i][0], 300, candidates[i][1], candidates[i][2]);
-			double performance = run.best.AugmentedTchebycheff(0.0) + 0.5 * run.elapsed_seconds;
+			double performance = run.best.cost + 0.5 * run.elapsed_seconds;
 			//Append the cost of executing candidate i in randomInstance to CostMatrix
 			CostMatrix[i].push_back(performance);
 			block.push_back(performance);
@@ -146,7 +146,7 @@ void VehicleExclusionImpact() {
 			for (int j = 0; j < 5; j++) {
 				Run run = algorithms::IteratedGreedy(algorithms::details::Init1(), 100, INT_MAX,7,0.1);
 				avgTime += run.elapsed_seconds;
-				avgCost += run.best.AugmentedTchebycheff(0.0);
+				avgCost += run.best.cost;
 			}
 			avgTime /= 5;
 			avgCost /= 5;
@@ -167,8 +167,8 @@ int main() {
 	Run run = algorithms::IteratedGreedy(init, 100, INT_MAX, 7, 0.1);
 	run.init.Display(2);
 
-	double difference = run.init.AugmentedTchebycheff(0.0) - run.best.AugmentedTchebycheff(0.0);
-	double improvement = 100.0 * (difference / run.init.AugmentedTchebycheff(0.0));
+	double difference = run.init.cost - run.best.cost;
+	double improvement = 100.0 * (difference / run.init.cost);
 	cout << improvement << "%\n";
 	return EXIT_SUCCESS;
 }

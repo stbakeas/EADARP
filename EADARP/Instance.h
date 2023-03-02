@@ -37,9 +37,6 @@ private:
     void Preprocessing();
 
 public:
-    enum class Objective{User,Owner,System,NumberOfObjectives} ;
-    std::array<Objective,3> objectives = { Objective::User,Objective::Owner,Objective::System };
-    std::vector<std::vector<float>> weight_combinations;
     std::string name;
     std::vector<Node*> nodes;
     std::vector<EAV*> vehicles;
@@ -55,15 +52,12 @@ public:
     int maximumCapacity = 0.0;
     double returnedBatteryPercentage;
     double maximumBattery;
-    std::array<double, static_cast<int>(Objective::NumberOfObjectives)> ideal;
-    std::array<double, static_cast<int>(Objective::NumberOfObjectives)> nadir;
     ~Instance();
     Instance(const Instance&) = delete;
     void operator=(const Instance&) = delete;
     static Instance& getUnique();
     void loadFromFile(const std::string instance_file_name, int seed);
     void RandomInit(int request_num,int vehicles_num,int stations_num, int max_latitude, int  max_longitude,double planning_horizon, int seed);
-    void computeExtremePoints();
 
     //Get the start depot associated with a vehicle
     Node* getDepot(EAV* vehicle,std::string start_or_end);
