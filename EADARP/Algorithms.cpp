@@ -143,6 +143,7 @@ namespace algorithms {
 			Route empty_route;
 			empty_route.batteryFeasible = false;
 			empty_route.capacityFeasible = false;
+			empty_route.timeFeasible = false;
 
 			//Reserve size for feasible position vectors
 			int vehicle_index = randlib.randint(0, available_vehicles.size() - 1);

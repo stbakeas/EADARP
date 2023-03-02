@@ -20,8 +20,12 @@ public:
 	EAV* vehicle;
 	std::vector<Node*> path;
 	std::vector<double> start_of_service_times;
-	std::unordered_map<CStation*, double> charging_times;
+	std::unordered_map<CStation*, double> desiredAmount;
 	std::vector<int> loads;
+
+	//Version proposed by Savelsbergh (1995) for the PDPTW
+	std::vector<double> FTS;
+
 	std::vector<double> battery;
 	std::unordered_map<CStation*, bool> assigned_cs;
 	std::vector<std::pair<int, int>> natural_sequences;
@@ -34,8 +38,6 @@ public:
 	Request* selectRandomRequest(RandLib randlib);
 	bool isInsertionCapacityFeasible(Request* request, int i, int j) const;
 	bool isInsertionBatteryFeasible(Request* request, int i, int j,bool increaseChargingTime);
-
-	//With respect to the vehicle return time.
 	bool isInsertionTimeFeasible(Request* request, int i, int j);
 	std::pair<size_t, size_t> getRequestPosition(const Request* r);
 	int getLoad(int i); //Get the load at position i

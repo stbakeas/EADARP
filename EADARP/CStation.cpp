@@ -14,9 +14,5 @@ double CStation::getChargedAmount(double stay_time) {
 }
 
 double CStation::getRequiredTime(double current_amount,double desired_amount){
-	if (current_amount > desired_amount) return 0;
-	else {
-		double diff = desired_amount - current_amount;
-		return (diff / this->recharge_rate);
-	}
+	return std::max(0.0,desired_amount-current_amount) / this->recharge_rate;
 }
