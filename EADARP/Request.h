@@ -10,7 +10,6 @@ public:
 	Direction direction;
 	Node* origin;
 	Node* destination;
-	int reward;
 	std::unordered_set<int> forbidden_vehicles;
 	Request() {};
 	Request(Node* origin, Node* destination,Direction direction);
