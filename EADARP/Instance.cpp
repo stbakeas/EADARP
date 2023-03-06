@@ -81,14 +81,9 @@ void Instance::RandomGenerator(int request_num, int vehicles_num, int stations_n
         node1->maximum_travel_time = DBL_MAX;
         node2->maximum_travel_time = 40;
 
-        node1->recharge_cost = 0;
-        node2->recharge_cost = 0;
-        node1->recharge_rate = 0;
-        node2->recharge_rate = 0;
-
         nodes.push_back(node1);
         nodes.push_back(node2);
-        requests.push_back(new Request(node1, node2,inbound?Request::Direction::INBOUND:Request::Direction::OUTBOUND));
+        requests.push_back(new Request(node1, node2));
     }
     
     //Create and add vehicles
@@ -117,10 +112,6 @@ void Instance::RandomGenerator(int request_num, int vehicles_num, int stations_n
         node_start->maximum_travel_time = DBL_MAX;
         node_end->maximum_travel_time = DBL_MAX;
 
-        node_start->recharge_rate = 0;
-        node_start->recharge_cost = 0;
-        node_end->recharge_rate = 0;
-        node_end->recharge_cost = 0;
         nodes.push_back(node_start);
         nodes.push_back(node_end);
         vehicles.push_back(new EAV(2*request_num+i, randlib.randint(4, maximumCapacity),maximumBattery,node_start->earliest,node_end->latest,returnedBatteryPercentage));
@@ -138,10 +129,8 @@ void Instance::RandomGenerator(int request_num, int vehicles_num, int stations_n
         node3->earliest = 0;
         node3->latest = planning_horizon;
         node3->maximum_travel_time = DBL_MAX;
-        node3->recharge_rate = dischargeRate;
-        node3->recharge_cost = 0.08;
         nodes.push_back(node3);
-        charging_stations.push_back(new CStation(2*request_num+2*vehicles_num+i,node3->recharge_rate,node3->recharge_cost));
+        charging_stations.push_back(new CStation(2*request_num+2*vehicles_num+i,dischargeRate));
     }
 
     //We do this to represent a request i by (i,n+i) instead of (i,i+1)
@@ -230,10 +219,6 @@ void Instance::loadMalheiros(const std::string instance_file_name, int seed) {
         node_start->maximum_travel_time = DBL_MAX;
         node_end->maximum_travel_time = DBL_MAX;
 
-        node_start->recharge_rate = 0;
-        node_start->recharge_cost = 0;
-        node_end->recharge_rate = 0;
-        node_end->recharge_cost = 0;
         nodes.push_back(node_start);
         nodes.push_back(node_end);
 
@@ -257,9 +242,6 @@ void Instance::loadMalheiros(const std::string instance_file_name, int seed) {
             file >> node->earliest;
             file >> node->latest;
 
-            node->recharge_cost = 0;
-            node->recharge_rate = 0;
-
             // Add type of node
             if (node->load > 0)
                 node->type = Node::Type::ORIGIN;
@@ -279,8 +261,7 @@ void Instance::loadMalheiros(const std::string instance_file_name, int seed) {
         nodes[requests_num + i]->maximum_travel_time = nodes[i]->maximum_travel_time;
         nodes[i]->maximum_travel_time = DBL_MAX;
 
-        requests.push_back(new Request(nodes[i], nodes[requests_num + i],
-            nodes[i]->latest <Horizon?Request::Direction::INBOUND:Request::Direction::OUTBOUND));
+        requests.push_back(new Request(nodes[i], nodes[requests_num + i]));
     }
 
     //Create and add charging stations
@@ -295,10 +276,8 @@ void Instance::loadMalheiros(const std::string instance_file_name, int seed) {
         node3->earliest = 0;
         node3->latest = Horizon;
         node3->maximum_travel_time = DBL_MAX;
-        node3->recharge_rate = 0.055;
-        node3->recharge_cost = 0.14;
         nodes.push_back(node3);
-        charging_stations.push_back(new CStation(2 * requests_num + 2 * vehicles_num + i, node3->recharge_rate, node3->recharge_cost));
+        charging_stations.push_back(new CStation(2 * requests_num + 2 * vehicles_num + i, 0.055));
     }
 
     createDistanceMatrix();
@@ -307,21 +286,119 @@ void Instance::loadMalheiros(const std::string instance_file_name, int seed) {
 }
 
 void Instance::loadCordeau(const std::string instance_file_name, int seed) {
+
     std::ifstream file(instance_file_name);
+
     if (!file.is_open()) {
         std::cerr << "Failed to read file '" << instance_file_name << '\'' << std::endl;
         exit(1);
     }
 
     // Header metadata
-    int vehicles_num, requests_num;
+    int vehicles_num, requests_num, start_depots_num, end_depots_num, stations_num, station_copies;
 
     file >> vehicles_num;
-    vehicles.reserve(vehicles_num);
+    vehicles.resize(vehicles_num);
 
     file >> requests_num;
-    requests.reserve(requests_num);
+    requests.resize(requests_num);
 
+    file >> start_depots_num >> end_depots_num >> stations_num >> station_copies;
+
+    charging_stations.resize(station_copies * stations_num);
+
+    file >> Horizon;
+
+    // Build all nodes
+    for (int id = 1; file >> id; ) {
+
+        Node* node = new Node(id);
+        file >> node->x;
+        file >> node->y;
+        file >> node->service_duration;
+        file >> node->load;
+        file >> node->earliest;
+        file >> node->latest;
+        node->maximum_travel_time = DBL_MAX;
+
+        // Add type of node
+        if (node->load > 0)
+            node->type = Node::Type::ORIGIN;
+        else if (node->load < 0)
+            node->type = Node::Type::DESTINATION;
+
+        nodes.push_back(node);
+    }
+
+    int common_origin_id, common_dest_id;
+    file >> common_origin_id;
+    nodes[common_origin_id - 1]->type = Node::Type::START_DEPOT;
+
+    file >> common_dest_id;
+    nodes[common_dest_id - 1]->type = Node::Type::END_DEPOT;
+
+    int id;
+    for (int i = 0; i < start_depots_num; i++) {
+        file >> id;
+        nodes[id-1]->type = Node::Type::START_DEPOT;
+    }
+
+    for (int i = 0; i < end_depots_num; i++) {
+        file >> id;
+        nodes[id-1]->type = Node::Type::END_DEPOT;
+    }
+
+    for (int i = 0; i < stations_num; i++) {
+        file >> id;
+        charging_stations[i]->id = id;
+        nodes[id-1]->type = Node::Type::CHARGING_STATION;
+    }
+    
+    int ride_time;
+    for (int i = 0; i < requests_num; i++) {
+        file >> ride_time;
+        nodes[i + requests_num]->maximum_travel_time = ride_time;
+        requests[i]->origin = nodes[i];
+        requests[i]->destination = nodes[i + requests_num];
+    }
+
+    int capacity;
+    for (int i = 0; i < vehicles_num; i++) {
+        
+        file >> capacity;
+        vehicles[i]->capacity = capacity;
+    }
+
+    //Skip initial battery level
+    for (int i = 0; i < vehicles_num; i++) file >> capacity;
+        
+    double maximum_battery;
+    for (int i = 0; i < vehicles_num; i++) {
+        file >> maximumBattery;
+        vehicles[i]->id = 2*requests_num+i+1;
+        vehicles[i]->start_time = 0.0;
+        vehicles[i]->end_time = Horizon;
+        vehicles[i]->battery = maximumBattery;
+        vehicles[i]->acquisition_cost = vehicles[i]->battery + vehicles[i]->capacity;
+    }
+
+    double return_percentage;
+    for (int i = 0; i < vehicles_num; i++) {
+        file >> return_percentage;
+        vehicles[i]->battery_return_percentage = return_percentage;
+    }
+
+    double recharge_rate;
+    for (int i = 0; i < stations_num; i++) {
+        file >> recharge_rate;
+        charging_stations[i]->recharge_rate = recharge_rate;
+    }
+    file >> dischargeRate;
+    file.close();
+
+    createDistanceMatrix();
+    createSimilarityMatrix();
+    Preprocessing();
 }
 
 void Instance::createDistanceMatrix()
