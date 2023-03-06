@@ -44,7 +44,6 @@ public:
     std::vector<CStation*> charging_stations;
     std::vector<std::vector<double>> distanceMatrix;
     std::vector<std::vector<double>> similarity;
-    int controlParameter;
     double maxDistance;
     int numberOfDepots;
     double Horizon;
@@ -56,8 +55,11 @@ public:
     Instance(const Instance&) = delete;
     void operator=(const Instance&) = delete;
     static Instance& getUnique();
-    void loadFromFile(const std::string instance_file_name, int seed);
-    void RandomInit(int request_num,int vehicles_num,int stations_num, int max_latitude, int  max_longitude,double planning_horizon, int seed);
+
+    
+    void loadMalheiros(const std::string instance_file_name, int seed);
+    void RandomGenerator(int request_num,int vehicles_num,int stations_num, int max_latitude, int  max_longitude,double planning_horizon, int seed);
+    void loadCordeau(const std::string instance_file_name, int seed);
 
     //Get the start depot associated with a vehicle
     Node* getDepot(EAV* vehicle,std::string start_or_end);
@@ -87,4 +89,6 @@ public:
     * by the preprocessing algorithm.
     */
     bool isForbiddenArc(Node* n1, Node* n2);
+
+    
 };

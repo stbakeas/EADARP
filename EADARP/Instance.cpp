@@ -27,7 +27,7 @@ Instance::~Instance()
     }
 }
 
-void Instance::RandomInit(int request_num, int vehicles_num, int stations_num, int max_latitude,
+void Instance::RandomGenerator(int request_num, int vehicles_num, int stations_num, int max_latitude,
    int max_longitude,double planning_horizon, int seed) {
     RandLib randlib(seed);
     Horizon = planning_horizon;
@@ -147,11 +147,10 @@ void Instance::RandomInit(int request_num, int vehicles_num, int stations_num, i
     //We do this to represent a request i by (i,n+i) instead of (i,i+1)
     std::sort(nodes.begin(), nodes.end(), [](const Node* n1, const Node* n2) {return n1->id < n2->id; });
     createDistanceMatrix();
-    for (Request* r : requests) r->reward = r->origin->load*getTravelTime(r->origin, r->destination); 
     Preprocessing();
 }
 
-void Instance::loadFromFile(const std::string instance_file_name, int seed) {
+void Instance::loadMalheiros(const std::string instance_file_name, int seed) {
     Horizon = 1440.0;
     dischargeRate = 0.055;
     maximumBattery = 14.85;
@@ -193,8 +192,8 @@ void Instance::loadFromFile(const std::string instance_file_name, int seed) {
         }
         int total_capacity = ceil(std::accumulate(vehicle_capacities.begin(), vehicle_capacities.end(), 0)/2);
         if (total_capacity > maximumCapacity) maximumCapacity = total_capacity;
-        int start_time = randlib.randint(0, Horizon-max_route_duration);
-        int end_time = start_time + max_route_duration;
+        int start_time = 0.0; //randlib.randint(0, Horizon - max_route_duration);
+        int end_time = Horizon; // start_time + max_route_duration;
 
         Node* node_start = new Node(2 * requests_num + i);
         Node* node_end = new Node(2 * requests_num +vehicles_num+i);
@@ -279,8 +278,9 @@ void Instance::loadFromFile(const std::string instance_file_name, int seed) {
     for (int i = 0; i < requests_num; i++){
         nodes[requests_num + i]->maximum_travel_time = nodes[i]->maximum_travel_time;
         nodes[i]->maximum_travel_time = DBL_MAX;
+
         requests.push_back(new Request(nodes[i], nodes[requests_num + i],
-            nodes[i]->latest < inst.Horizon?Request::Direction::INBOUND:Request::Direction::OUTBOUND));
+            nodes[i]->latest <Horizon?Request::Direction::INBOUND:Request::Direction::OUTBOUND));
     }
 
     //Create and add charging stations
@@ -303,10 +303,25 @@ void Instance::loadFromFile(const std::string instance_file_name, int seed) {
 
     createDistanceMatrix();
     createSimilarityMatrix();
-    for (Request* r : requests) {
-        r->reward = r->origin->load*getTravelTime(r->origin, r->destination);
-    }
     Preprocessing();
+}
+
+void Instance::loadCordeau(const std::string instance_file_name, int seed) {
+    std::ifstream file(instance_file_name);
+    if (!file.is_open()) {
+        std::cerr << "Failed to read file '" << instance_file_name << '\'' << std::endl;
+        exit(1);
+    }
+
+    // Header metadata
+    int vehicles_num, requests_num;
+
+    file >> vehicles_num;
+    vehicles.reserve(vehicles_num);
+
+    file >> requests_num;
+    requests.reserve(requests_num);
+
 }
 
 void Instance::createDistanceMatrix()
@@ -322,7 +337,6 @@ void Instance::createDistanceMatrix()
         }
     }
 }
-
 
 void Instance::createSimilarityMatrix()
 {
@@ -368,6 +382,21 @@ void Instance::createSimilarityMatrix()
 }
 
 void Instance::Preprocessing() {
+
+    //Time Window Tightening
+    for (int i = 0; i < requests.size(); i++) {
+        if (nodes[i]->latest < inst.Horizon) {
+
+            nodes[i + requests.size()]->earliest = std::max(0.0, nodes[i]->earliest + nodes[i]->service_duration +
+                getTravelTime(nodes[i], nodes[i + requests.size()]));
+            nodes[i + requests.size()]->latest = std::min(Horizon, nodes[i]->latest + nodes[i]->service_duration + nodes[i + requests.size()]->maximum_travel_time);
+
+        }
+        else {
+            nodes[i]->earliest = std::max(0.0, nodes[i + requests.size()]->earliest - nodes[i]->service_duration - nodes[i + requests.size()]->maximum_travel_time);
+            nodes[i]->latest = std::min(Horizon, nodes[i + requests.size()]->latest - nodes[i]->service_duration - inst.getTravelTime(nodes[i], nodes[i + requests.size()]));
+        }
+    }
    
     //Arc Elimination
     int n = inst.requests.size();
@@ -379,7 +408,9 @@ void Instance::Preprocessing() {
                     (nodes[i]->isOrigin() && nodes[j]->isEndingDepot()) ||
                     (nodes[i]->isOrigin() && nodes[j]->isChargingStation()) ||
                     (nodes[i]->isChargingStation() && nodes[j]->isDestination()) ||
-                    (nodes[i]->isDestination() && nodes[j]->isOrigin() && i == j + n)
+                    (nodes[i]->isDestination() && nodes[j]->isOrigin() && i == j + n) ||
+                    (nodes[i]->earliest+nodes[i]->service_duration+getTravelTime(nodes[i],nodes[j])>nodes[j]->latest) ||
+                    (nodes[i]->isOrigin() && getTravelTime(nodes[i],nodes[j]) + nodes[j]->service_duration + getTravelTime(nodes[j],nodes[i+n]) > nodes[i+n]->maximum_travel_time)
                     )
                     distanceMatrix[i][j] = DBL_MAX;
             } 
