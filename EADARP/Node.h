@@ -11,9 +11,7 @@ public:
 	double earliest;
 	double latest;
 	double maximum_travel_time;
-	double recharge_cost;
-	double recharge_rate;
-
+	
 
 	Node() {};
 	Node(int id);
