@@ -33,51 +33,54 @@ namespace algorithms {
 
 	Run IteratedGreedy(Solution initial,unsigned int max_iterations,int max_seconds, int removalRandomness, float removalPercentage)
 	{
-		std::array<int,3> statistics{ 0,0,0 };
+		bool noFeasibleFound = true;
+		std::array<int, 2> statistics{ 0,0 };
+		double kappa = 0.05;
 		std::random_device rd;
 		RandLib randlib(rd());
 		Run run;
 		auto start = std::chrono::steady_clock::now();
 		run.init = initial;
 		printf("%s\n", "Running ILS...");
-		Solution incumbent = run.best=run.init;
-		exchangeOrigin(incumbent, NeighborChoice::BEST);
-		exchangeDestination(incumbent, NeighborChoice::BEST);
-		exchangeConsecutive(incumbent, NeighborChoice::BEST);
-		moveStation(incumbent, NeighborChoice::BEST);
+		exchangeOrigin(run.init, NeighborChoice::BEST);
+		exchangeDestination(run.init, NeighborChoice::BEST);
+		exchangeConsecutive(run.init, NeighborChoice::BEST);
+		moveStation(run.init, NeighborChoice::BEST);
+		run.best = run.init;
 		unsigned int iter = 0;
 		while (iter<max_iterations) {
-			Solution s =Destroy(incumbent, removalPercentage, removalRandomness);
+			Solution s =WorstRemoval(run.best, removalPercentage, removalRandomness);
 			for (auto& [vehicle, route] : s.routes) route.deleteRedundantChargingStations();
-
 			s = Repair(s);
 
-			double before = s.cost;
-			exchangeOrigin(s, NeighborChoice::BEST);
-			exchangeDestination(s, NeighborChoice::BEST);
-			exchangeConsecutive(s, NeighborChoice::BEST);
-			moveStation(s, NeighborChoice::BEST);
-			double after = s.cost;
-			if (after < before) statistics[2]++;
-
-			if (s.cost < incumbent.cost) {
-				incumbent = s;
-				if (s.cost < run.best.cost) {
-					run.best = s;
+			if (s.rejected.size() < run.best.rejected.size()) { 
+				run.best = s; 
+				statistics[0]++;
+			}
+			else if (s.rejected.size() == run.best.rejected.size() && s.cost < (1.0 + kappa) * run.best.cost) {
+				exchangeOrigin(s, NeighborChoice::BEST);
+				exchangeDestination(s, NeighborChoice::BEST);
+				exchangeConsecutive(s, NeighborChoice::BEST);
+				moveStation(s, NeighborChoice::BEST);
+				if (s.cost < run.best.cost) { 
+					run.best = s; 
 					statistics[0]++;
 				}
 			}
+			if (noFeasibleFound && run.best.rejected.empty()) { 
+				run.init = run.best; 
+				std::cout << "In iteration " << iter << " the first feasible solution was found." << "\n";
+				noFeasibleFound = false;
+			}
+			
 			iter++;
 			printf("%u\n",iter);
-			if (iter > statistics[1]) statistics[1] = iter;
 			double elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
 			run.elapsed_seconds = elapsed/1000.0;
 			if (run.elapsed_seconds > max_seconds) break;
 		}
 		/*printf("\n");
-		printf("%s%u\n", "Times new best solution was found: ",statistics[0]);
-		printf("%s%u\n", "Most iterations without improvement: ", statistics[1]);
-		printf("%s%u\n", "Times intra-route local search brought improvement: ", statistics[2]);*/
+		printf("%s%u\n", "Times new best solution was found: ",statistics[0]); */
 		run.init.deleteEmptyRoutes();
 		run.best.deleteEmptyRoutes();
 		return run;
@@ -276,10 +279,12 @@ namespace algorithms {
 						min_pos = *st;
 					}
 				}
+				if (min_cost == DBL_MAX) return empty_route;
 				if (min_pos.charging_station != nullptr) s.routes[min_pos.vehicle].insertNode(inst.nodes[min_pos.charging_station->id - 1], min_pos.cs_pos + 1);
 				s.routes[min_pos.vehicle].insertRequest(r, min_pos.origin_pos + 1, min_pos.dest_pos + 1);
 				s.routes[min_pos.vehicle].updateMetrics();
 				return s.routes[min_pos.vehicle];
+				
 			}
 
 		}
@@ -291,7 +296,7 @@ namespace algorithms {
 		Solution Init1() {
 			Solution solution;	
 			std::random_device rd;
-			RandLib randlib(1);
+			RandLib randlib(rd());
 			auto start = std::chrono::steady_clock::now();
 			solution.AddDepots();
 			std::vector<Request*> unassigned = inst.requests;
@@ -440,7 +445,6 @@ namespace algorithms {
 					}
 				}
 			}
-
 			solution.rejected = unassigned;
 			return solution;
 		}
@@ -953,7 +957,7 @@ namespace algorithms {
 			return best;
 		}
 
-		Solution Destroy(Solution s, double removal_ratio, double randomness)
+		Solution WorstRemoval(Solution s, double removal_ratio, double randomness)
 		{
 			std::random_device rd;
 			RandLib randlib(rd());
@@ -969,7 +973,7 @@ namespace algorithms {
 				{
 					if (current_solution.routes[v].path[i]->isOrigin()) {
 						Request* r = inst.getRequest(current_solution.routes[v].path[i]);
-						double old_cost,new_cost,cost;
+						double old_cost, new_cost,cost;
 						old_cost = current_solution.cost;
 						new_route = current_solution.routes[v];
 						new_route.removeRequest(r);
@@ -977,8 +981,10 @@ namespace algorithms {
 						current_solution.addRoute(new_route);
 						new_cost = current_solution.cost;
 						cost = old_cost - new_cost;
-						std::pair<EAV*, double> vehicleAndCost = { v,cost};
-						requestPosition.push_back ( {r,vehicleAndCost} );
+							
+						
+						std::pair<EAV*, double> vehicleAndCost = { v,cost };
+						requestPosition.push_back({ r,vehicleAndCost });
 						current_solution = s;
 					}
 				}
@@ -995,10 +1001,10 @@ namespace algorithms {
 				route.removeRequest(req);
 				route.updateMetrics();
 				current_solution.addRoute(route);
-				current_solution.removed.push_back({req,vehicle});
+				current_solution.removed.push_back({ req,vehicle });
 				requestPosition.erase(requestPosition.begin() + index);
 			}
-			
+
 			return current_solution;
 		}
 
@@ -1009,21 +1015,90 @@ namespace algorithms {
 			for (Request* req : s.rejected) s.removed.push_back({ req,nullptr });
 			s.rejected.clear();
 			while (!s.removed.empty()) {
-				bool notFound = false;
-				int index = randlib.randint(0,s.removed.size()-1);
-				auto pair = s.removed[index];
-				std::vector<EAV*> vehicles = inst.vehicles;
-				if (pair.second != nullptr) vehicles.erase(std::remove(vehicles.begin(), vehicles.end(), pair.second), vehicles.end());
-				Route new_route = PairInsertion(pair.first, s, vehicles,true);
-				if (new_route.isFeasible()) s.addRoute(new_route);
-				else notFound = true;
-				if (notFound && pair.second == nullptr) s.rejected.push_back(pair.first);
-				else if (notFound && pair.second != nullptr) {
-					new_route = PairInsertion(pair.first, s, { pair.second },true);
-					if (new_route.isFeasible()) s.addRoute(new_route);
-					else s = rejectedReinsertion(pair.first, s);
+				Solution best;
+				best.cost = DBL_MAX;
+				Assignment min_pair;
+				for (Assignment pair : s.removed) {
+					bool notFound = false;
+					std::vector<EAV*> vehicles = inst.vehicles;
+					if (pair.second != nullptr) vehicles.erase(std::remove(vehicles.begin(), vehicles.end(), pair.second), vehicles.end());
+					Route new_route = PairInsertion(pair.first, s, vehicles, true);
+					if (new_route.isFeasible()) {
+						Solution neighbor = s;
+						neighbor.addRoute(new_route);
+						if (neighbor.cost < best.cost) {
+							min_pair = pair;
+							best = neighbor;
+						}
+
+					}
+					else notFound = true;
+					if (notFound && pair.second != nullptr) {
+						new_route = PairInsertion(pair.first, s, { pair.second }, true);
+						if (new_route.isFeasible()) {
+							Solution neighbor = s;
+							neighbor.addRoute(new_route);
+							if (neighbor.cost < best.cost) {
+								min_pair = pair;
+								best = neighbor;
+							}
+						}
+					}
 				}
-				s.removed.erase(s.removed.begin() + index);
+				if (best.cost == DBL_MAX) {
+					for (auto [request,vehicle] : s.removed) s = rejectedReinsertion(request, s);
+					s.removed.clear();
+				}
+				else {
+					s = best;
+					s.removed.erase(std::remove(s.removed.begin(), s.removed.end(), min_pair),s.removed.end());
+				}
+				
+			}
+			return s;
+		}
+
+		Solution ZeroSplitRemoval(Solution s, double removal_ratio, double randomness) {
+			std::random_device rd;
+			RandLib randlib(rd());
+			size_t num_of_assigned_requests = inst.requests.size() - s.rejected.size();
+			int removal_number = ceil(num_of_assigned_requests * removal_ratio);
+			std::vector<std::pair<std::vector<Request*>, std::pair<EAV*, double>>> zssPosition;
+			zssPosition.reserve(inst.requests.size());
+			for (EAV* v : inst.vehicles) {
+				for (auto pair : s.routes[v].natural_sequences) {
+					std::vector<Request*> removedRequests;
+					for (int i = pair.first; i < pair.second; i++) {
+						if (s.routes[v].path[i]->isOrigin()) removedRequests.push_back(inst.getRequest(s.routes[v].path[i]));
+					}
+					double cost = s.routes[v].start_of_service_times[pair.second] - s.routes[v].start_of_service_times[pair.first];
+					cost /= pair.second - pair.first;
+					cost += inst.getTravelTime(s.routes[v].path[pair.first - 1], s.routes[v].path[pair.first]) +
+						inst.getTravelTime(s.routes[v].path[pair.second], s.routes[v].path[pair.second + 1]) / 2;
+					std::pair<EAV*, double> locationAndCost(v,cost);
+					zssPosition.emplace_back(removedRequests,locationAndCost);
+				}
+			}
+
+			std::sort(zssPosition.begin(), zssPosition.end(),
+				[](std::pair<std::vector<Request*>, std::pair<EAV*, double>> pair1, std::pair<std::vector<Request*>, std::pair<EAV*, double>> pair2)
+				{ return pair1.second.second > pair2.second.second; }
+			);
+
+			
+			int i = 0;
+			while (i < removal_number) {
+				int index = floor(pow(randlib.unifrnd(0, 0.99), randomness) * zssPosition.size());
+				EAV* vehicle = zssPosition[index].second.first;
+				Route route = s.routes[vehicle];
+				for (Request* req : zssPosition[index].first) {
+					route.removeRequest(req);
+					route.updateMetrics();
+					s.removed.push_back({req,vehicle });
+					i++;
+				}
+				s.addRoute(route);
+				zssPosition.erase(zssPosition.begin() + index);
 			}
 			return s;
 		}
@@ -1062,10 +1137,7 @@ namespace algorithms {
 					Route new_route = PairInsertion(req, neighbor,inst.vehicles, true);
 					if (new_route.isFeasible()) {
 						neighbor.addRoute(new_route);
-						if (neighbor.cost < s.cost)
-						{
-							return neighbor;
-						}
+						return neighbor;
 					}
 				}
 			}

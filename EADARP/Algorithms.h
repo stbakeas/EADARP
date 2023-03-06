@@ -89,9 +89,10 @@ namespace algorithms
 
 		void exchangeConsecutive(Solution& s, NeighborChoice strategy);
 
-		Solution Destroy(Solution s, double removal_ratio, double randomness);
+		Solution WorstRemoval(Solution s, double removal_ratio, double randomness);
 		
 		Solution Repair(Solution s);
+		Solution ZeroSplitRemoval(Solution s, double removal_ratio, double randomness);
 		/*
 		Proposed by Ying Luo and Paul Schonfeld in 2007
 		*/

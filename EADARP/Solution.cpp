@@ -148,9 +148,13 @@ double Solution::getInsertionCost(Request* r, Position p) {
     if (p.charging_station != nullptr) test_route.insertNode(inst.nodes[p.charging_station->id - 1], p.cs_pos + 1);
     test_route.insertRequest(r, p.origin_pos + 1, p.dest_pos + 1);
     test_route.updateMetrics();
-    addRoute(test_route);
-    new_cost = cost;
-    addRoute(old_route);
-    return new_cost-current_cost;
+    if (test_route.isFeasible()) {
+        addRoute(test_route);
+        new_cost = cost;
+        addRoute(old_route);
+        return new_cost - current_cost;
+    }
+    else return DBL_MAX;
+   
 }
 
