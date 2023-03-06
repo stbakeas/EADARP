@@ -66,7 +66,7 @@ Configuration FRace(std::vector<Configuration> candidates,std::vector<std::pair<
 		//Select random instance
 		int instanceIndex = randlib.randint(0, instances.size() - 1);
 		std::pair<int,int> randomInstance = instances[instanceIndex];
-		inst.loadFromFile("Instances-MDHDARP/a"+to_string(randomInstance.first)+"-"+to_string(randomInstance.second)+"hetIUY.txt", 3);
+		inst.loadMalheiros("Instances-MDHDARP/a"+to_string(randomInstance.first)+"-"+to_string(randomInstance.second)+"hetIUY.txt", 3);
 		
 		//For each configuration
 		Solution init = algorithms::details::Init1();
@@ -137,9 +137,8 @@ void VehicleExclusionImpact() {
 		printf("%s%i%s\n", "Excluding ", 100 * x / 4, "% of vehicles...");
 		std::pair<int, int> vehicleRange{ 9,16 };
 		initialRequests = 108;
-		inst.controlParameter = x;
 		for (int i = vehicleRange.first; i <= vehicleRange.second; i++) {
-			inst.loadFromFile("Instances-MDHDARP/a" + to_string(i) + "-" + to_string(initialRequests) + "hetIUY.txt", 3);
+			inst.loadMalheiros("Instances-MDHDARP/a" + to_string(i) + "-" + to_string(initialRequests) + "hetIUY.txt", 3);
 			printf("%s%i%c%i\n", "Instance ", i, '-', initialRequests);
 			double avgTime;
 			double avgCost;
@@ -161,14 +160,18 @@ void VehicleExclusionImpact() {
 }
 
 int main() {
-	inst.loadFromFile("Instances-MDHDARP/a10-100hetIUY.txt", 3);
-	inst.controlParameter = 4;
+	inst.loadMalheiros("Malheiros-MDHDARP/a9-72hetIUY.txt", 5);
+	
 	Solution init = algorithms::details::Init4();
-	Run run = algorithms::IteratedGreedy(init, 100, INT_MAX, 7, 0.1);
-	run.init.Display(2);
+	Run run = algorithms::IteratedGreedy(init, INT_MAX, 600, 7, 0.1);
+	run.best.Display(0);
+
+	cout << "From " << run.init.rejected.size() << " to " << run.best.rejected.size() << endl;
+	cout << "From " << run.init.cost << " to " << run.best.cost << endl;
 
 	double difference = run.init.cost - run.best.cost;
 	double improvement = 100.0 * (difference / run.init.cost);
 	cout << improvement << "%\n";
+
 	return EXIT_SUCCESS;
 }
