@@ -2,10 +2,9 @@
 #include <math.h>
 #include <iostream>
 
-CStation::CStation(int id, double recharge_rate, double recharge_cost) {
+CStation::CStation(int id, double recharge_rate) {
 	this->id = id;
 	this->recharge_rate = recharge_rate;
-	this->recharge_cost = recharge_cost;
 }
 
 double CStation::getChargedAmount(double stay_time) {
