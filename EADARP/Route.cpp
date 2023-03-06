@@ -139,6 +139,8 @@ void Route::LazyScheduling() {
 void Route::updateMetrics() {
     batteryFeasible = true;
     capacityFeasible = true;
+    timeFeasible = true;
+
     int n = (int)path.size();
     loads.clear();
     loads.resize(n);
@@ -146,6 +148,7 @@ void Route::updateMetrics() {
     battery.resize(n);
     requests.clear();
     if (adaptiveCharging) for (CStation* cs : inst.charging_stations) { assigned_cs[cs] = false; desiredAmount[cs] = 0.0; }
+    node_indices.clear();
     for (int i = 0; i < n; i++) {
         node_indices[path[i]] = i;
         computeLoad(i);
@@ -153,6 +156,7 @@ void Route::updateMetrics() {
         if (adaptiveCharging) computeChargingTime(i);
         if (path[i]->isOrigin()) requests.push_back(inst.getRequest(path[i]));
     }
+ 
     BasicScheduling();
     LazyScheduling();
     storeNaturalSequences();
@@ -265,7 +269,6 @@ void Route::insertNode(Node* node, int index)
             perror("Error! Can not insert a node before the starting depot");
         else if (index > path.size()) perror("Error! Can not insert a node after the ending depot");
         else { 
-            node_indices[node] = index;
             path.insert(path.begin() + index, node);
             if (!adaptiveCharging && node->isChargingStation()) computeChargingTime(index);
         }
@@ -331,8 +334,11 @@ void Route::computeChargingTime(int nodePosition) {
 
 std::pair<size_t, size_t> Route::getRequestPosition(const Request* r) {
     std::pair<size_t,size_t> positions;
-    positions.first = node_indices[r->origin];
-    positions.second = node_indices[r->destination];
+    if (node_indices.contains(r->origin) && node_indices.contains(r->destination)) {
+        positions.first = node_indices[r->origin];
+        positions.second = node_indices[r->destination];
+    }
+    else perror("Error! This request is not served during this route");
     return positions;
 }
 
@@ -376,11 +382,9 @@ Request* Route::selectRandomRequest(RandLib randlib) {
     }
 }
 
-void Route::removeNode(int index)
-{
+void Route::removeNode(int index){
     if (index > 0 && index < path.size() - 1) {
-        Node* node = path[index];
-        node_indices.erase(node);
+        Node* node = path.at(index);
         path.erase(path.begin() + index);
         if (!adaptiveCharging && node->isChargingStation()) {
             CStation* s = inst.getChargingStation(node);
@@ -463,7 +467,7 @@ bool Route::isInsertionTimeFeasible(Request* request, int i, int j)
     int closest = 0;
     for (const auto& [station, assigned] : assigned_cs) {
         if (assigned) {
-            int csIndex = node_indices[inst.nodes.at(station->id - 1)];
+            int csIndex = node_indices[inst.nodes[station->id - 1]];
             if (csIndex > closest && csIndex <=i) closest = csIndex;
         }
     }
