@@ -9,22 +9,36 @@ namespace algorithms
 {
 	enum class NeighborChoice { BEST, FIRST, RANDOM, SMART};
 
-	Run IteratedGreedy(Solution initial,unsigned int max_iterations, int max_seconds,
-		int removalRandomness,float removalPercentage);
+	typedef std::pair<Request*, EAV*> Assignment;
 
-	Run DeterministicAnnealing(Solution initial, int Nb_iter, int T_max, int T_red, int n_imp);
+	typedef Solution(*Heuristic)(Solution, std::vector<double>);
 
-	bool SimulatedAnnealingAcceptanceCriterion(const Solution& candidate,const Solution& incumbent, int current_temperature);
+	struct Statistics {
+		Heuristic heuristic;
+		double weight;
+		int score;
+		int attempts;
+
+		Statistics(Heuristic heuristic,double weight, int score, int attempts) {
+			this->heuristic = heuristic;
+			this->weight = weight;
+			this->score = score;
+			this->attempts = attempts;
+		}
+
+	};
+
+	int RouletteWheelSelection(std::vector<Statistics>);
+
+	Run ALNS(Solution initial,unsigned int max_iterations, int max_seconds,
+		double removalRandomness,double removalPercentage, int segment_size,double reaction_factor);
+
+	bool SimulatedAnnealingAcceptanceCriterion(const Solution& candidate,const Solution& incumbent, double current_temperature);
 
     namespace details
     {
 
-		/**
-	    * Define as "Move" a method that receives a Solution and returns another Solution.
-	    */
-		typedef Solution(*Move)(Solution s, NeighborChoice strategy);
-
-		Route PairInsertion(Request* r,Solution s, std::vector<EAV*> available_vehicles,bool includeCS=false);
+		std::vector<Position> InsertionNeighborhood(Request* r, Solution s, std::vector<EAV*> available_vehicles, bool includeCS = false);
 
 		double DistanceBetweenUsers(Request* r1,Request* r2);
 
@@ -38,11 +52,6 @@ namespace algorithms
          */
 		Solution Init1();
 
-        /**
-        * Parallel Insertion Heuristic proposed by Yue Su, Nicolas Dupin, Jakob Puchinger
-        */
-        Solution Init2();
-
 		/*
 		* Sequential Insertion Heuristic based on acquisition cost
 		*/
@@ -55,14 +64,12 @@ namespace algorithms
 		Solution two_opt(Solution s,NeighborChoice strategy);
 
 		/*
-		* Intra-route operator. Removes a charging station and reinserts it in every feasible position.
+		* Intra-route 
+		
+		
+		. Removes a charging station and reinserts it in every feasible position.
 		*/
 		void moveStation(Solution& s,NeighborChoice strategy);
-
-		/*
-		 Removes a request from its route and reinserts it into its best position of another route.
-		*/
-		Solution relocate(Solution s,NeighborChoice strategy);
 
 		/*
 		 Selects two requests from two different routes and swaps their positions
@@ -89,14 +96,43 @@ namespace algorithms
 
 		void exchangeConsecutive(Solution& s, NeighborChoice strategy);
 
-		Solution WorstRemoval(Solution s, double removal_ratio, double randomness);
-		
-		Solution Repair(Solution s);
-		Solution ZeroSplitRemoval(Solution s, double removal_ratio, double randomness);
+		/*
+		* Removal Ratio = 0 
+		* Randomness = 1
+		*/
+		Solution WorstRemoval(Solution s, std::vector<double> arguments);
+
+		//Removal Ratio = 0;
+		Solution RandomRemoval(Solution s, std::vector<double> arguments);
+
+		//Removal Ratio = 0;
+		Solution SimilarityRemoval(Solution s, std::vector<double> arguments);
+
+		/*
+		* Removal Ratio = 0
+		* Randomness = 1
+		*/
+		Solution ZeroSplitRemoval(Solution s, std::vector<double> arguments);
+
+		// Removal Ratio = 0
+		Solution EntireRouteRemoval(Solution s, std::vector<double> arguments);
+
+		//Empty
+		Solution GreedyInsertion(Solution s, std::vector<double> arguments);
+
+		//Empty
+		Solution LeastOptionsInsertion(Solution s, std::vector<double> arguments);
+
+		/*
+		* Regret Degree = 0
+		*/
+		Solution RegretInsertion(Solution s, std::vector<double> arguments);
+
+
 		/*
 		Proposed by Ying Luo and Paul Schonfeld in 2007
 		*/
-		Solution rejectedReinsertion(Request* r,Solution s);
+		void rejectedReinsertion(Solution& s);
     } 
 }
 
