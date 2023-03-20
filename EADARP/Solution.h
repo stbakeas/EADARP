@@ -13,7 +13,9 @@ public:
 	std::unordered_map<EAV*, Route> routes;
 	std::vector<Request*> rejected;
 	std::vector<std::pair<Request*, EAV*>> removed;
-	double cost;
+	double total_travel_distance, total_excess_ride_time;
+
+    double objectiveValue() const;
 
 
 	/**

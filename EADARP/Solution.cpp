@@ -6,21 +6,25 @@
 #include <map>
 
 Solution::Solution(){
-    cost = 0.0;
+    total_travel_distance = total_excess_ride_time = 0.0;
     rejected.reserve(inst.requests.size());
     removed.reserve(inst.requests.size()/2);
 }
 
-float float_one_point_round(float value)
+double Solution::objectiveValue() const
 {
-    return ((float)((int)(value * 10))) / 10;
+    return total_travel_distance;
 }
 
 void Solution::addRoute(Route r)
 {
     // In case we are updating the vehicle's route...
-    if (routes.contains(r.vehicle)) cost -= routes[r.vehicle].cost;
-    cost += r.cost;
+    if (routes.contains(r.vehicle)) { 
+        total_travel_distance-=routes[r.vehicle].travel_distance;
+        total_excess_ride_time-=routes[r.vehicle].excess_ride_time;
+    }
+    total_travel_distance+=r.travel_distance;
+    total_excess_ride_time+=r.excess_ride_time;
     routes[r.vehicle] = r;
 }
 
@@ -40,15 +44,15 @@ void Solution::Display(int i) {
             size_t length = my_route.second.path.size();
             for (size_t i = 0; i < length - 1; i++)
             {
-                printf("%s%i%s%f%s%i%s","(",
-                    my_route.second.path.at(i)->id, ",", my_route.second.battery.at(i), "kWh,", my_route.second.loads[i], ")->");
+                printf("%s%i%s%f%s%f%s","(",
+                    my_route.second.path.at(i)->id, ",", my_route.second.battery.at(i), "kWh,", my_route.second.start_of_service_times.at(i), ")->");
             }
-            printf("%s%i%s%f%s%i%s",
-            "(" , my_route.second.path.back()->id , "," , my_route.second.battery.back() , "kWh," , my_route.second.loads.back() , ")");
+            printf("%s%i%s%f%s%f%s",
+            "(" , my_route.second.path.back()->id , "," , my_route.second.battery.back() , "kWh," , my_route.second.start_of_service_times.back() , ")");
             printf("\n\n");
         }
     }
-    else printf("%f\n",cost);
+    else printf("%f\n",objectiveValue());
 }
 
 void Solution::AddDepots()
@@ -111,8 +115,8 @@ void Solution::FixHardConstraints() {
             zero_load_nodes.reserve(routes[v].path.size() / 2);
             for (size_t i = 0; i < routes[v].battery.size()-1; i++)
             {
-                if (routes[v].battery[i] >= 0 && !routes[v].loads[i]) zero_load_nodes.push_back(i);
-                if (routes[v].battery[i] < 0) break;
+                if (!(routes[v].battery[i] < 0.0) && !routes[v].loads[i]) zero_load_nodes.push_back(i);
+                if (routes[v].battery[i] < 0.0) break;
             }
             for (size_t i=zero_load_nodes.size()-1;i>0;i--) {
                 CStation* cs = routes[v].findBestChargingStationAfter(zero_load_nodes[i]);
@@ -142,7 +146,7 @@ double Solution::getInsertionCost(Request* r, Position p) {
     double current_cost, new_cost;
     Route old_route, test_route;
     
-    current_cost = cost;
+    current_cost = objectiveValue();
     old_route = routes[p.vehicle];
     test_route = old_route;
     if (p.charging_station != nullptr) test_route.insertNode(inst.nodes[p.charging_station->id - 1], p.cs_pos + 1);
@@ -150,11 +154,12 @@ double Solution::getInsertionCost(Request* r, Position p) {
     test_route.updateMetrics();
     if (test_route.isFeasible()) {
         addRoute(test_route);
-        new_cost = cost;
+        new_cost = objectiveValue();
         addRoute(old_route);
         return new_cost - current_cost;
     }
     else return DBL_MAX;
    
 }
+
 
