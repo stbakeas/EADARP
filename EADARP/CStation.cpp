@@ -8,7 +8,7 @@ CStation::CStation(int id, double recharge_rate) {
 }
 
 double CStation::getChargedAmount(double stay_time) {
-	if (stay_time < 0) return 0;
+	if (stay_time < 0.0) return 0.0;
 	return stay_time * this->recharge_rate;
 }
 

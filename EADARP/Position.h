@@ -21,7 +21,7 @@ struct Position {
 		this->dest_pos = dest_pos;
 		this->charging_station = charging_station;
 		this->cs_pos = cs_pos;
-		cost = 0;
+		cost = 0.0;
 	}
 
 	bool operator<(const Position& a) {
