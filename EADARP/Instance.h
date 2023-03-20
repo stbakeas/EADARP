@@ -58,8 +58,7 @@ public:
 
     
     void loadMalheiros(const std::string instance_file_name, int seed);
-    void RandomGenerator(int request_num,int vehicles_num,int stations_num, int max_latitude, int  max_longitude,double planning_horizon, int seed);
-    void loadCordeau(const std::string instance_file_name, int seed);
+    void loadCordeau(const std::string instance_file_name);
 
     //Get the start depot associated with a vehicle
     Node* getDepot(EAV* vehicle,std::string start_or_end);

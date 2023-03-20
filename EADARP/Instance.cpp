@@ -27,123 +27,13 @@ Instance::~Instance()
     }
 }
 
-void Instance::RandomGenerator(int request_num, int vehicles_num, int stations_num, int max_latitude,
-   int max_longitude,double planning_horizon, int seed) {
-    RandLib randlib(seed);
-    Horizon = planning_horizon;
-    maximumCapacity = 6;
-    numberOfDepots = vehicles_num;
-    dischargeRate = 0.055;
-    maximumBattery = 14.85;
-    maxDistance = sqrt(2 *pow(abs(max_latitude)+abs(max_longitude),2));
-    returnedBatteryPercentage = 0.4;
 
-    requests.reserve(request_num);
-    vehicles.reserve(vehicles_num);
-    charging_stations.reserve(stations_num);
-    nodes.reserve(2 * request_num + 2 * vehicles_num + stations_num);
-
-    //Create and add requests
-    for (int i = 1; i <= request_num; i++)
-    {
-        Node* node1 = new Node(i);
-        Node* node2 = new Node(i+request_num);
-        node1->type = Node::Type::ORIGIN;
-        node2->type = Node::Type::DESTINATION;
-       
-        //Set coordinates
-        node1->x = randlib.unifrnd(-max_latitude, max_latitude);
-        node1->y = randlib.unifrnd(-max_longitude, max_longitude);
-
-        node2->x = randlib.unifrnd(-max_latitude, max_latitude);
-        node2->y = randlib.unifrnd(-max_longitude, max_longitude);
-
-        node1->load = randlib.randint(1,4);
-        node2->load = -node1->load;
-
-        //Set time windows
-        bool inbound = (bool) randlib.randint(0,1);
-        if (inbound) {
-            node1->earliest = randlib.unifrnd(360, 1020);
-            node1->latest = node1->earliest + 15;
-            node2->earliest = 0;
-            node2->latest = planning_horizon;
-        }
-        else {
-            node1->earliest = 0;
-            node1->latest = planning_horizon;
-            node2->earliest = randlib.unifrnd(420,1080);
-            node2->latest = node2->earliest+15;
-        }
-        node1->service_duration = node1->load;
-        node2->service_duration = node1->service_duration;
-
-        node1->maximum_travel_time = DBL_MAX;
-        node2->maximum_travel_time = 40;
-
-        nodes.push_back(node1);
-        nodes.push_back(node2);
-        requests.push_back(new Request(node1, node2));
-    }
-    
-    //Create and add vehicles
-    for (int i = 1; i <= vehicles_num; i++)
-    {
-        /*We will create both a starting and ending depot for the same location,
-        * since we need to represent an earliest departure time when the vehicle starts service
-        and a latest arrival time when the platform returns the vehicle to its owner */
-        Node* node_start = new Node(2 * request_num + i); 
-        Node* node_end = new Node(2 * request_num + vehicles_num + i);
-        node_start->type = Node::Type::START_DEPOT;
-        node_end->type = Node::Type::END_DEPOT;
-        node_start->x = randlib.unifrnd(-max_latitude, max_latitude);
-        node_start->y = randlib.unifrnd(-max_longitude, max_longitude);
-        node_end->x = node_start->x;
-        node_end->y = node_start->y;
-        node_start->load = 0;
-        node_end->load = 0;
-        node_start->service_duration = 0;
-        node_end->service_duration = 0;
-
-        node_start->earliest = randlib.unifrnd(100,300);
-        node_start->latest = planning_horizon;
-        node_end->earliest = 0.0;
-        node_end->latest = randlib.unifrnd(1000, planning_horizon);
-        node_start->maximum_travel_time = DBL_MAX;
-        node_end->maximum_travel_time = DBL_MAX;
-
-        nodes.push_back(node_start);
-        nodes.push_back(node_end);
-        vehicles.push_back(new EAV(2*request_num+i, randlib.randint(4, maximumCapacity),maximumBattery,node_start->earliest,node_end->latest,returnedBatteryPercentage));
-    }
-
-    //Create and add charging stations
-    for (int i = 1; i <= stations_num; i++)
-    {
-        Node* node3 = new Node(2 * request_num + 2*vehicles_num + i);
-        node3->type = Node::Type::CHARGING_STATION;
-        node3->x = randlib.unifrnd(-max_latitude, max_latitude);
-        node3->y = randlib.unifrnd(-max_longitude, max_longitude);
-        node3->load = 0;
-        node3->service_duration = 0;
-        node3->earliest = 0;
-        node3->latest = planning_horizon;
-        node3->maximum_travel_time = DBL_MAX;
-        nodes.push_back(node3);
-        charging_stations.push_back(new CStation(2*request_num+2*vehicles_num+i,dischargeRate));
-    }
-
-    //We do this to represent a request i by (i,n+i) instead of (i,i+1)
-    std::sort(nodes.begin(), nodes.end(), [](const Node* n1, const Node* n2) {return n1->id < n2->id; });
-    createDistanceMatrix();
-    Preprocessing();
-}
 
 void Instance::loadMalheiros(const std::string instance_file_name, int seed) {
-    Horizon = 1440.0;
+    Horizon = 1440;
     dischargeRate = 0.055;
     maximumBattery = 14.85;
-    returnedBatteryPercentage = 0.1;
+    returnedBatteryPercentage = 0.7;
     maxDistance = sqrt(2 * pow(abs(-10) + abs(10), 2));
     RandLib randlib(seed);
     std::ifstream file(instance_file_name);
@@ -181,36 +71,36 @@ void Instance::loadMalheiros(const std::string instance_file_name, int seed) {
         }
         int total_capacity = ceil(std::accumulate(vehicle_capacities.begin(), vehicle_capacities.end(), 0)/2);
         if (total_capacity > maximumCapacity) maximumCapacity = total_capacity;
-        int start_time = 0.0; //randlib.randint(0, Horizon - max_route_duration);
-        int end_time = Horizon; // start_time + max_route_duration;
+        double start_time; //randlib.randint(0, Horizon - max_route_duration);
+        double end_time(Horizon); // start_time + max_route_duration;
 
         Node* node_start = new Node(2 * requests_num + i);
         Node* node_end = new Node(2 * requests_num +vehicles_num+i);
         node_start->type = Node::Type::START_DEPOT;
         node_end->type = Node::Type::END_DEPOT;
         if (i % vehicles_num == 1) {
-            node_start->x = -5;
-            node_start->y = -5;
+            node_start->x = -5.0;
+            node_start->y = -5.0;
         }
         else if (i % vehicles_num == 2) {
-            node_start->x = 5;
-            node_start->y = 5;
+            node_start->x = 5.0;
+            node_start->y = 5.0;
         }
         else if (i % vehicles_num == 3) {
-            node_start->x = -5;
-            node_start->y = 5;
+            node_start->x = -5.0;
+            node_start->y = 5.0;
         }
         else {
-            node_start->x = 5;
-            node_start->y = -5;
+            node_start->x = 5.0;
+            node_start->y = -5.0;
         }
 
         node_end->x = node_start->x;
         node_end->y = node_start->y;
         node_start->load = 0;
         node_end->load = 0;
-        node_start->service_duration = 0;
-        node_end->service_duration = 0;
+        node_start->service_duration = double();
+        node_end->service_duration = 0.0;
 
         node_start->earliest = start_time;
         node_start->latest = Horizon;
@@ -222,7 +112,7 @@ void Instance::loadMalheiros(const std::string instance_file_name, int seed) {
         nodes.push_back(node_start);
         nodes.push_back(node_end);
 
-        vehicles.push_back(new EAV(2 * requests_num + i,total_capacity, 14.85, start_time, end_time, returnedBatteryPercentage));
+        vehicles.push_back(new EAV(2 * requests_num + i,total_capacity, maximumBattery, start_time, end_time,maximumBattery,returnedBatteryPercentage));
     }
 
     // Build all request nodes
@@ -270,10 +160,10 @@ void Instance::loadMalheiros(const std::string instance_file_name, int seed) {
         Node* node3 = new Node(2 * requests_num + 2 * vehicles_num + i);
         node3->type = Node::Type::CHARGING_STATION;
         node3->x = randlib.unifrnd(-10,10);
-        node3->y = randlib.unifrnd(-10,10);
+        node3->y = randlib.unifrnd(-10, 10);
         node3->load = 0;
-        node3->service_duration = 0;
-        node3->earliest = 0;
+        node3->service_duration = 0.0;
+        node3->earliest = 0.0;
         node3->latest = Horizon;
         node3->maximum_travel_time = DBL_MAX;
         nodes.push_back(node3);
@@ -285,8 +175,8 @@ void Instance::loadMalheiros(const std::string instance_file_name, int seed) {
     Preprocessing();
 }
 
-void Instance::loadCordeau(const std::string instance_file_name, int seed) {
-
+void Instance::loadCordeau(const std::string instance_file_name) {
+   
     std::ifstream file(instance_file_name);
 
     if (!file.is_open()) {
@@ -298,20 +188,21 @@ void Instance::loadCordeau(const std::string instance_file_name, int seed) {
     int vehicles_num, requests_num, start_depots_num, end_depots_num, stations_num, station_copies;
 
     file >> vehicles_num;
-    vehicles.resize(vehicles_num);
+    vehicles.reserve(vehicles_num);
 
     file >> requests_num;
-    requests.resize(requests_num);
+    requests.reserve(requests_num);
 
     file >> start_depots_num >> end_depots_num >> stations_num >> station_copies;
 
-    charging_stations.resize(station_copies * stations_num);
+    charging_stations.reserve(station_copies * stations_num);
 
     file >> Horizon;
 
+    int id;
     // Build all nodes
-    for (int id = 1; file >> id; ) {
-
+    for (int i = 0; i<2*requests_num+2*(vehicles_num+1)+stations_num;i++) {
+        file >> id;
         Node* node = new Node(id);
         file >> node->x;
         file >> node->y;
@@ -319,7 +210,7 @@ void Instance::loadCordeau(const std::string instance_file_name, int seed) {
         file >> node->load;
         file >> node->earliest;
         file >> node->latest;
-        node->maximum_travel_time = DBL_MAX;
+        node->maximum_travel_time = 120.0;
 
         // Add type of node
         if (node->load > 0)
@@ -337,49 +228,55 @@ void Instance::loadCordeau(const std::string instance_file_name, int seed) {
     file >> common_dest_id;
     nodes[common_dest_id - 1]->type = Node::Type::END_DEPOT;
 
-    int id;
-    for (int i = 0; i < start_depots_num; i++) {
+    for (int i = 0; i < vehicles_num; i++) {
         file >> id;
         nodes[id-1]->type = Node::Type::START_DEPOT;
     }
 
-    for (int i = 0; i < end_depots_num; i++) {
+    for (int i = 0; i < vehicles_num; i++) {
         file >> id;
         nodes[id-1]->type = Node::Type::END_DEPOT;
     }
 
     for (int i = 0; i < stations_num; i++) {
         file >> id;
+        charging_stations.push_back(new CStation());
         charging_stations[i]->id = id;
         nodes[id-1]->type = Node::Type::CHARGING_STATION;
     }
     
-    int ride_time;
+    double ride_time;
     for (int i = 0; i < requests_num; i++) {
         file >> ride_time;
         nodes[i + requests_num]->maximum_travel_time = ride_time;
-        requests[i]->origin = nodes[i];
-        requests[i]->destination = nodes[i + requests_num];
+        requests.push_back(new Request(nodes[i], nodes[i + requests_num]));
     }
 
     int capacity;
     for (int i = 0; i < vehicles_num; i++) {
         
         file >> capacity;
+        if (capacity > maximumCapacity) maximumCapacity = capacity;
+        vehicles.push_back(new EAV());
         vehicles[i]->capacity = capacity;
     }
 
     //Skip initial battery level
-    for (int i = 0; i < vehicles_num; i++) file >> capacity;
+    double initial_battery;
+    for (int i = 0; i < vehicles_num; i++) { 
+        file >> initial_battery;
+        vehicles[i]->initial_battery = initial_battery;
+    }
         
-    double maximum_battery;
+   double maximum_battery;
     for (int i = 0; i < vehicles_num; i++) {
-        file >> maximumBattery;
-        vehicles[i]->id = 2*requests_num+i+1;
+        file >> maximum_battery;
+        if (maximumBattery < maximum_battery) maximumBattery = maximum_battery;
+        vehicles[i]->id = 2*requests_num+i+3;
         vehicles[i]->start_time = 0.0;
         vehicles[i]->end_time = Horizon;
-        vehicles[i]->battery = maximumBattery;
-        vehicles[i]->acquisition_cost = vehicles[i]->battery + vehicles[i]->capacity;
+        vehicles[i]->total_battery = maximum_battery;
+        vehicles[i]->acquisition_cost = 0.0;
     }
 
     double return_percentage;
@@ -394,6 +291,7 @@ void Instance::loadCordeau(const std::string instance_file_name, int seed) {
         charging_stations[i]->recharge_rate = recharge_rate;
     }
     file >> dischargeRate;
+
     file.close();
 
     createDistanceMatrix();
@@ -408,7 +306,7 @@ void Instance::createDistanceMatrix()
         distanceMatrix[i].resize(nodes.size());
 
         for (int j = 0; j < distanceMatrix.size(); j++) {
-            distanceMatrix[i][j] = sqrt(
+            distanceMatrix[i][j] =sqrt(
                 pow(nodes[i]->x - nodes[j]->x, 2) + pow(nodes[i]->y - nodes[j]->y, 2)
             );
         }
@@ -444,7 +342,9 @@ void Instance::createSimilarityMatrix()
     for (Request* r1 : requests) {
         similarity[r1->origin->id - 1].resize(requests.size());
         for (Request* r2 : requests) {
-            int normloadDiff = (abs(r1->origin->load - r2->origin->load) - loadDifference.first) / (loadDifference.second - loadDifference.first);
+            int normloadDiff = (abs(r1->origin->load - r2->origin->load) - loadDifference.first);
+            if (loadDifference.second - loadDifference.first) normloadDiff /= loadDifference.second - loadDifference.first;
+
 
             double normtimeWindowRelatedness = (abs(r1->origin->earliest - r2->origin->earliest) + abs(r1->origin->latest - r2->origin->latest) +
                 abs(r1->destination->latest - r2->destination->latest) + abs(r1->destination->earliest - r2->destination->earliest) - timeWindow.first) /
@@ -480,23 +380,32 @@ void Instance::Preprocessing() {
     for (int i = 0; i < distanceMatrix.size(); i++) {
         for (int j = 0; j < distanceMatrix.size(); j++) {
             if (i != j) {
+                if (nodes[i]->isOrigin() && getTravelTime(nodes[i], nodes[j]) + nodes[j]->service_duration + getTravelTime(nodes[j], nodes[i + n]) > nodes[i + n]->maximum_travel_time) {
+                    distanceMatrix[i][j] = DBL_MAX;
+                    distanceMatrix[j][n + i] = DBL_MAX;
+                }
+
                 if ((abs(nodes[i]->load + nodes[j]->load) > inst.maximumCapacity) ||
                     (nodes[i]->isStartingDepot() && nodes[j]->isDestination()) ||
                     (nodes[i]->isOrigin() && nodes[j]->isEndingDepot()) ||
                     (nodes[i]->isOrigin() && nodes[j]->isChargingStation()) ||
                     (nodes[i]->isChargingStation() && nodes[j]->isDestination()) ||
                     (nodes[i]->isDestination() && nodes[j]->isOrigin() && i == j + n) ||
-                    (nodes[i]->earliest+nodes[i]->service_duration+getTravelTime(nodes[i],nodes[j])>nodes[j]->latest) ||
-                    (nodes[i]->isOrigin() && getTravelTime(nodes[i],nodes[j]) + nodes[j]->service_duration + getTravelTime(nodes[j],nodes[i+n]) > nodes[i+n]->maximum_travel_time)
+                    (nodes[i]->earliest + nodes[i]->service_duration + getTravelTime(nodes[i], nodes[j]) > nodes[j]->latest)
+                    /*||
+                    (nodes[i]->isEndingDepot()) ||
+                    (nodes[j]->isStartingDepot())*/
                     )
+                {
                     distanceMatrix[i][j] = DBL_MAX;
+                }
+
             } 
 
         }
     }
     
     //Incompatible request-vehicle pairs
-    int request_count;
     for (Request* r : inst.requests){
         for (EAV* v: inst.vehicles) {
             Node* start_depot = inst.getDepot(v, "start");
@@ -508,7 +417,7 @@ void Instance::Preprocessing() {
                 + r->destination->service_duration + inst.getTravelTime(r->destination, end_depot) > v->end_time;
             if (violation_origin || violation_dest || violation_vehicle) r->forbidden_vehicles.insert(v->id);
         }
-        printf("%s%i%s%i%s\n", "Request " , r->origin->id , " has " , r->forbidden_vehicles.size() , "forbidden vehicles");
+        printf("%s%i%s%i%s\n", "Request " , r->origin->id , " has " , r->forbidden_vehicles.size() , " forbidden vehicles");
     } 
 }
 
@@ -524,7 +433,7 @@ Request* Instance::getRequest(Node* node)
 }
 
 CStation* Instance::getChargingStation(Node* node) {
-    return charging_stations[node->id-2*requests.size()-2*vehicles.size()-1];
+    return charging_stations[node->id-2*requests.size()-2*(vehicles.size()+1)-1];
 }
 
 Node* Instance::getDepot(EAV* vehicle,std::string start_or_end)
