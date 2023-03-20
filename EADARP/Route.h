@@ -29,7 +29,7 @@ public:
 	std::vector<double> battery;
 	std::unordered_map<CStation*, bool> assigned_cs;
 	std::vector<std::pair<int, int>> natural_sequences;
-	double cost;
+	double travel_distance, excess_ride_time;
 	Route() {};
 	Route(EAV* vehicle);
 	bool isEmpty(); //Check if the route contains absolutely no nodes
@@ -58,13 +58,13 @@ public:
 	void computeLoad(int i);
 	void computeStartOfServiceTime(int i);
 	void computeBatteryLevel(int i);
-	void computeTotalCost();
+	void computeTotalCost(bool debug);
 	void insertNode(Node* node, int index);
 	void insertRequest(Request* r, int i, int j);
 	void removeNode(int index);
 	void removeRequest(Request* request);
 	void storeNaturalSequences();
-	void updateMetrics(); //Computes all necessary metrics 
+	void updateMetrics(bool debug=false); //Computes all necessary metrics 
 
 	
 	/*Input: A sequence of n nodes
