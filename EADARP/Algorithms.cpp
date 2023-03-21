@@ -27,37 +27,34 @@ namespace algorithms {
 		return randlib.rand() < std::exp(exponent);
 	}
 
-	int RouletteWheelSelection(std::vector<Statistics> stats) {
+	int RouletteWheelSelection(std::vector<Statistics> stats, double weightSum) {
 		std::random_device rd;
 		RandLib randlib(rd());
-
-
 		double randomNumber = randlib.rand();
-		double offset(0.0);
-		double sum(0.0);
-
-		for (int i = 0; i < stats.size(); i++) sum = sum + stats[i].weight;
-		
+		double offset(0.0);		
 		for (int i = 0; i<stats.size(); i++) {
-			offset+= stats[i].weight/sum;
+			offset+= stats[i].weight/weightSum;
 			if (randomNumber < offset) return i;
 		}
 	}
 
 	Run ALNS(Solution initial,unsigned int max_iterations,int max_seconds, double removalRandomness, double removalPercentage,int segment_size,double reaction_factor)
 	{
-		double temperature(25.0);
-		double cooling_rate(0.9996);
+		double temperature(15.0);
+		double cooling_rate(0.99975);
+		std::array<double, 2> weightSum;
 		std::array<std::vector<Statistics>,2> stats;
 		
 
 		stats[0].emplace_back(ZeroSplitRemoval, 0.25, 0, 0);
 		stats[0].emplace_back(WorstRemoval, 0.25, 0, 0);
-		stats[0].emplace_back(EntireRouteRemoval, 0.25, 0, 0);
+		stats[0].emplace_back(SimilarityRemoval, 0.25, 0, 0);
 		stats[0].emplace_back(RandomRemoval, 0.25, 0, 0);
+		weightSum[0] = 1.0;
 		stats[1].emplace_back(RegretInsertion, 0.33, 0, 0);
-		stats[1].emplace_back(GreedyInsertion, 0.33, 0, 0);
+		stats[1].emplace_back(GreedyInsertion, 0.34, 0, 0);
 		stats[1].emplace_back(LeastOptionsInsertion, 0.33, 0, 0);
+		weightSum[1] = 1.0;
 			
 		bool noFeasibleFound = true;
 		double intra_percentage(0.05);
@@ -70,8 +67,8 @@ namespace algorithms {
 		
 		Solution s;
 		while (iter <= max_iterations) {
-			int removalIndex = RouletteWheelSelection(stats[0]);
-			int insertionIndex = RouletteWheelSelection(stats[1]);
+			int removalIndex = RouletteWheelSelection(stats[0],weightSum[0]);
+			int insertionIndex = RouletteWheelSelection(stats[1],weightSum[1]);
 
 			s = stats[0][removalIndex].heuristic(incumbent, { removalPercentage,removalRandomness });
 			for (EAV* v : inst.vehicles) {
@@ -86,14 +83,14 @@ namespace algorithms {
 
 
 			if (s.rejected.size() < incumbent.rejected.size()) {
-				    incumbent = s;
-					stats[0][removalIndex].score += 10;
-					stats[1][insertionIndex].score += 10;
-					no_imp_iter = 0;
-					
+				incumbent = s;
+				stats[0][removalIndex].score += 10;
+				stats[1][insertionIndex].score += 10;
+				no_imp_iter = 0;
+
 			}
 			else if (s.rejected.size() == incumbent.rejected.size()) {
-				if (FixedDouble(s.objectiveValue(),2) < FixedDouble(incumbent.objectiveValue(),2)) {
+				if (FixedDouble(s.objectiveValue(), 2) < FixedDouble(incumbent.objectiveValue(), 2)) {
 					incumbent = s;
 					stats[0][removalIndex].score += 10;
 					stats[1][insertionIndex].score += 10;
@@ -105,13 +102,15 @@ namespace algorithms {
 					stats[0][removalIndex].score += 5;
 					stats[1][insertionIndex].score += 5;
 				}
+
 				if (s.rejected.size() < run.best.rejected.size()) {
 					incumbent = run.best = s;
 					stats[0][removalIndex].score += 20;
 					stats[1][insertionIndex].score += 20;
 					no_imp_iter = 0;
+					run.best_iter = iter;
 				}
-				else if (s.rejected.size()==run.best.rejected.size() && FixedDouble(s.objectiveValue(),2) < FixedDouble((1.0 + intra_percentage) * run.best.objectiveValue(),2)) {
+				else if (s.rejected.size() == run.best.rejected.size() && FixedDouble(s.objectiveValue(), 2) < FixedDouble((1.0 + intra_percentage) * run.best.objectiveValue(), 2)) {
 					exchangeOrigin(s, NeighborChoice::BEST);
 					exchangeDestination(s, NeighborChoice::BEST);
 					exchangeConsecutive(s, NeighborChoice::BEST);
@@ -120,26 +119,35 @@ namespace algorithms {
 						incumbent = run.best = s;
 						stats[0][removalIndex].score += 20;
 						stats[1][insertionIndex].score += 20;
+						no_imp_iter = 0;
+						run.best_iter = iter;
 					}
 				}
-				
 			}
-			if (noFeasibleFound && run.best.rejected.empty()) {
-				std::cout << "In iteration " << iter << " the first feasible solution was found." << "\n";
-				noFeasibleFound = false;
-			}
+
+			if (noFeasibleFound && run.best.rejected.empty()) noFeasibleFound = false;
+			
 
 			iter++;
+			no_imp_iter++;
 			temperature*=cooling_rate;
+			if (no_imp_iter > 3 * segment_size) {
+				temperature = 15.0;
+				std::cout << "Stuck in local optima. Reset Temperature\n";
+				no_imp_iter = 0;
+			}
 
 			if (iter % segment_size == 0) {
-				for (auto& stat : stats) {
-					for (int i = 0; i < stat.size(); i++) {
-						if (stat[i].attempts) {
-							stat[i].weight = (1.0 - reaction_factor)*stat[i].weight + reaction_factor * stat[i].score / stat[i].attempts;
-							stat[i].attempts = 0;
+				
+				for (int i = 0; i < 2; i++) {
+					weightSum[i] = 0.0;
+					for (int j = 0; j < stats[i].size(); j++) {
+						if (stats[i][j].attempts) {
+							stats[i][j].weight = (1.0 - reaction_factor)*stats[i][j].weight + reaction_factor * stats[i][j].score / stats[i][j].attempts;
+							stats[i][j].attempts = 0;
 						}
-						stat[i].score = 0;
+						weightSum[i] += stats[i][j].weight;
+						stats[i][j].score = 0;
 					}
 				}
 			}
@@ -147,16 +155,8 @@ namespace algorithms {
 			double elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
 			run.elapsed_seconds = elapsed / 1000.0;
 			if (run.elapsed_seconds > max_seconds) break;
-			if (temperature < 0.01) break;
 		}
-
-		for (auto& stat : stats) {
-			for (int i = 0; i < stat.size(); i++) {
-				std::cout << stat[i].weight << "\n";
-			}
-			std::cout << "\n";
-		}
-	
+		run.best.deleteEmptyRoutes();
 		return run;
 	}
 
@@ -503,10 +503,13 @@ namespace algorithms {
 									    Solution neighbor = s;
 									    neighbor.addRoute(new_r1);
 									    neighbor.addRoute(new_r2);
-									    if (strategy == NeighborChoice::RANDOM) return neighbor;
-									    if (new_r1.isFeasible() && new_r2.isFeasible() && neighbor.objectiveValue() < best.objectiveValue()) {
-									    	if (strategy == NeighborChoice::FIRST) return neighbor;
-									    	best = neighbor; 
+									    
+									    if (new_r1.isFeasible() && new_r2.isFeasible()) {
+											if (strategy == NeighborChoice::RANDOM) return neighbor;
+											if (neighbor.objectiveValue() < best.objectiveValue()) {
+												if (strategy == NeighborChoice::FIRST) return neighbor;
+												best = neighbor;
+											}
 									    }
 										
 
@@ -1150,8 +1153,7 @@ namespace algorithms {
 					s.removed.clear();
 				}
 				else {
-					int index = randlib.randint(0, leastMoves.size() - 1);
-					Position bestMove = leastMoves[index];
+					Position bestMove = leastMoves.front();
 					Route new_route = s.routes[bestMove.vehicle];
 					if (bestMove.charging_station != nullptr) new_route.insertNode(inst.nodes[bestMove.charging_station->id - 1], bestMove.cs_pos + 1);
 					new_route.insertRequest(min_pair.first, bestMove.origin_pos + 1, bestMove.dest_pos + 1);

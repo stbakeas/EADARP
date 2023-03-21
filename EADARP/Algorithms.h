@@ -28,7 +28,7 @@ namespace algorithms
 
 	};
 
-	int RouletteWheelSelection(std::vector<Statistics>);
+	int RouletteWheelSelection(std::vector<Statistics> stats, double weightSum);
 
 	Run ALNS(Solution initial,unsigned int max_iterations, int max_seconds,
 		double removalRandomness,double removalPercentage, int segment_size,double reaction_factor);
