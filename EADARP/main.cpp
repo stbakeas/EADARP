@@ -3,6 +3,7 @@
 #include "Algorithms.h"
 #include "Solution.h"
 #include "Route.h"
+#include <filesystem>
 #include <chrono>
 #include <thread>
 #include "RandLib.h"
@@ -17,64 +18,62 @@
 
 
 using namespace std;
+namespace fs = std::filesystem;
 
 
 typedef std::array<double, 3> Configuration;
 
-std::vector<int> rankTransform(std::vector<double>& arr) {
-	std::vector<double> copyArr = arr;
-	std::vector<int> rankings(arr.size());
-	std::sort(copyArr.begin(), copyArr.end());
-	std::unordered_map<double, int> hashMap;
-	for (double num : copyArr) {
-		if (!hashMap.contains(num)) hashMap[num]=hashMap.size() + 1;
+/*
+* 1. Run your algorithm on every a-instance for x runs.
+* 2. Write the output(Best Cost, Average Cost, Average Iterations Until Best Was Found, Average Running Time)
+*    for each instance in a file.
+*/
+void CordeauExperiment(int numberOfRuns) {
+	const fs::path pathToShow("Cordeau-EADARP");
+	ofstream cordeauFile("Experiment.txt");
+	for (const auto& entry : fs::directory_iterator(pathToShow)) {
+		const auto filenameStr = entry.path().filename().string();
+		if (entry.is_regular_file()) {
+			std::cout << "Instance: " << filenameStr << '\n';
+			inst.loadCordeau(pathToShow.string() + "/" + filenameStr);
+			Solution best;
+			best.total_travel_distance = DBL_MAX;
+			double avgRunTime = 0.0, avgCost = 0.0;
+			int avg_best_iter(0), successfulRuns(0);
+			for (int i = 0; i < numberOfRuns; i++) {
+				printf("%s%d\n", "Run ID: ", i);
+				Run run = algorithms::ALNS(algorithms::details::Init1(), 15000, INT_MAX, 6, 0.1, 100, 0.5);
+				if (run.best.rejected.empty()) {
+					successfulRuns++;
+					avgCost += run.best.objectiveValue();
+					if (run.best.objectiveValue() < best.objectiveValue()) {
+						best = run.best;
+						avg_best_iter += run.best_iter;
+					}
+				}
+				avgRunTime += run.elapsed_seconds;
+			}
+			cordeauFile << filenameStr << " " << successfulRuns << "/" << numberOfRuns << " " << best.objectiveValue() << " " << avgCost / successfulRuns << " " << avgRunTime / successfulRuns << " " << avg_best_iter / successfulRuns << "\n";
+			inst.~Instance();
+		}
 	}
-	for (int i = 0; i < arr.size(); i++) {
-		rankings[i] = hashMap[arr[i]];
-	}
-	return rankings;
+	cordeauFile.close();
 }
 
-double chi_square_critical_value(double degrees_of_freedom, double confidence_level) {
-	double alpha = 1.0 - confidence_level;
-	double x = degrees_of_freedom / 2.0;
-	double a = x - 1.0 / 3.0;
-	double b = 1.0 / (9.0 * a);
-	double c = pow(a, 3) * (1.0 - b + sqrt(b * (1.0 - b)));
-	c = c * (1.0 / (a * a * a));
-	double y = 1.0 - alpha / 2.0;
-	double z = log(y);
-	z = z / log(1.0 - c);
-	z = x * (1.0 - c) * pow(z, 3.0);
-	double critical_value = x + z;
-	return critical_value;
-}
-
-int main() {
-
-	
-	inst.loadCordeau("Cordeau-EADARP/a2-24-0.7.txt");
-	Solution init = algorithms::details::Init1();
-	printf("%f,%d\n", init.objectiveValue(), init.rejected.size());
+int main(){
+	inst.loadCordeau("Cordeau-EADARP/a2-16-0.7.txt");
 	Solution best;
 	best.total_travel_distance = DBL_MAX;
-	double avgRunTime = 0.0;
-	int numberOfRuns = 1;
-	int counter = 0;
-	for (int i = 0; i < numberOfRuns; i++) {
+	for (int i = 0; i < 1; i++) {
 		printf("%s%d\n", "Run ID: ", i);
-		Run run = algorithms::ALNS(init, 10000, INT_MAX, 5, 0.1,100,0.5);
-		if (run.best.objectiveValue() < best.objectiveValue()) best = run.best;
+		Run run = algorithms::ALNS(algorithms::details::Init1(), 25000, INT_MAX, 6, 0.1, 100, 0.5);
+		if (run.best.rejected.empty()) {
+			if (run.best.objectiveValue() < best.objectiveValue()) {
+				best = run.best;
+			}
+		}
 	}
-
-	double actual(0.0);
-	for (EAV* v : inst.vehicles) {
-		for (int i = 0; i < best.routes[v].path.size() - 1; i++)
-			actual += inst.getTravelTime(best.routes[v].path[i], best.routes[v].path[i + 1]);
-	}
-	std::cout << "Computed: " << FixedDouble(best.objectiveValue(), 2) << "\n";
-	std::cout << "Actual: " << actual << "\n";
 	best.Display(0);
-	
+	best.Display(1);
 	return EXIT_SUCCESS;
 }
