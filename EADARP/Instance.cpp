@@ -8,9 +8,6 @@
 #include <numeric>
 #include "RandLib.h"
 #include <set>
-
-
-
 Instance::~Instance()
 {
     for (Node* node : nodes)
@@ -27,14 +24,11 @@ Instance::~Instance()
     }
 }
 
-
-
 void Instance::loadMalheiros(const std::string instance_file_name, int seed) {
     Horizon = 1440;
     dischargeRate = 0.055;
     maximumBattery = 14.85;
     returnedBatteryPercentage = 0.7;
-    maxDistance = sqrt(2 * pow(abs(-10) + abs(10), 2));
     RandLib randlib(seed);
     std::ifstream file(instance_file_name);
 
@@ -417,8 +411,30 @@ void Instance::Preprocessing() {
                 + r->destination->service_duration + inst.getTravelTime(r->destination, end_depot) > v->end_time;
             if (violation_origin || violation_dest || violation_vehicle) r->forbidden_vehicles.insert(v->id);
         }
-        printf("%s%i%s%i%s\n", "Request " , r->origin->id , " has " , r->forbidden_vehicles.size() , " forbidden vehicles");
+        //printf("%s%i%s%i%s\n", "Request " , r->origin->id , " has " , r->forbidden_vehicles.size() , " forbidden vehicles");
     } 
+
+    //Average and Max Distance of Feasible Arcs
+    double sum = 0.0;
+    int counter = 0;
+    maxDistance = -1.0;
+    for (Node* n1 : inst.nodes) {
+        for (Node* n2 : inst.nodes) {
+            if (n1->id != n2->id && !inst.isForbiddenArc(n1, n2)) {
+                counter++;
+                if (inst.getTravelTime(n1, n2) > maxDistance) maxDistance = inst.getTravelTime(n1, n2);
+            }
+        }
+    }
+    for (Node* n1 : inst.nodes) {
+        for (Node* n2 : inst.nodes) {
+            if (n1->id != n2->id && !inst.isForbiddenArc(n1, n2)) {
+                sum += inst.getTravelTime(n1, n2) / maxDistance;
+            }
+        }
+    }
+    avgDistance = sum / counter;
+    std::cout << "Average Distance: " << avgDistance << "\n";
 }
 
 Instance& Instance::getUnique()
@@ -442,9 +458,17 @@ Node* Instance::getDepot(EAV* vehicle,std::string start_or_end)
     else return nodes[vehicles.size()+vehicle->id-1];
 }
 
-double Instance::getTravelTime(Node* n1, Node* n2)
+double Instance::getTravelTime(Node* n1, Node* n2, bool costMode)
 {
-    return distanceMatrix[n1->id-1][n2->id-1];
+    //if (costMode) {
+    //    //Exponential
+    //    if (distanceMatrix[n1->id - 1][n2->id - 1]/maxDistance < avgDistance)
+    //        return avgDistance - smoothingFactor/(exp(smoothingFactor/(avgDistance - distanceMatrix[n1->id - 1][n2->id - 1]/maxDistance))-1);
+    //    else
+    //        return avgDistance + smoothingFactor /(exp(smoothingFactor /(distanceMatrix[n1->id - 1][n2->id - 1] / maxDistance-avgDistance)) - 1);
+    //}
+    //else 
+    return distanceMatrix[n1->id - 1][n2->id - 1];
 }
 
 double Instance::getFuelConsumption(Node* n1, Node* n2)
@@ -453,5 +477,5 @@ double Instance::getFuelConsumption(Node* n1, Node* n2)
 }
 
 bool Instance::isForbiddenArc(Node* n1, Node* n2) {
-    return inst.getTravelTime(n1, n2) == DBL_MAX;
+    return distanceMatrix[n1->id-1][n2->id-1] == DBL_MAX;
 }

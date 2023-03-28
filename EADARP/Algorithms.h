@@ -30,7 +30,7 @@ namespace algorithms
 
 	int RouletteWheelSelection(std::vector<Statistics> stats, double weightSum);
 
-	Run ALNS(Solution initial,unsigned int max_iterations, int max_seconds,
+	Run ALNS(Solution initial, unsigned int max_iterations, int max_seconds, double temperature_control,
 		double removalRandomness,double removalPercentage, int segment_size,double reaction_factor);
 
 	bool SimulatedAnnealingAcceptanceCriterion(const Solution& candidate,const Solution& incumbent, double current_temperature);

@@ -44,13 +44,16 @@ public:
     std::vector<CStation*> charging_stations;
     std::vector<std::vector<double>> distanceMatrix;
     std::vector<std::vector<double>> similarity;
-    double maxDistance;
     int numberOfDepots;
     double Horizon;
     double dischargeRate;
     int maximumCapacity = 0.0;
     double returnedBatteryPercentage;
     double maximumBattery;
+
+    double smoothingFactor = 1.0;
+    double avgDistance,maxDistance;
+
     ~Instance();
     Instance(const Instance&) = delete;
     void operator=(const Instance&) = delete;
@@ -76,7 +79,7 @@ public:
     /**
      * Get the travel time between two nodes.
      */
-    double getTravelTime(Node* n1, Node* n2);
+    double getTravelTime(Node* n1, Node* n2, bool costMode=false);
 
     /**
      * Get battery consumption between two nodes.

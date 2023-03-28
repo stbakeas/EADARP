@@ -52,7 +52,7 @@ void Solution::Display(int i) {
             printf("\n\n");
         }
     }
-    else printf("%f\n",objectiveValue());
+    else printf("%f,%d\n",objectiveValue(),rejected.size());
 }
 
 void Solution::AddDepots()

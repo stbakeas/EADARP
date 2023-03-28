@@ -1,5 +1,4 @@
 #include "Algorithms.h"
-#include "Instance.h"
 #include "RandLib.h"
 #include <algorithm>
 #include <cstdint>
@@ -23,7 +22,7 @@ namespace algorithms {
 	bool SimulatedAnnealingAcceptanceCriterion(const Solution& candidate,const Solution& incumbent, double current_temperature) {
 		std::random_device rd;
 		RandLib randlib(rd());
-		double exponent = (incumbent.objectiveValue() - candidate.objectiveValue())/current_temperature;
+		double exponent = (candidate.objectiveValue() - incumbent.objectiveValue())/current_temperature;
 		return randlib.rand() < std::exp(exponent);
 	}
 
@@ -38,10 +37,10 @@ namespace algorithms {
 		}
 	}
 
-	Run ALNS(Solution initial,unsigned int max_iterations,int max_seconds, double removalRandomness, double removalPercentage,int segment_size,double reaction_factor)
+	Run ALNS(Solution initial,unsigned int max_iterations,int max_seconds,double temperature_control, double removalRandomness, double removalPercentage,int segment_size,double reaction_factor)
 	{
-		double temperature(15.0);
-		double cooling_rate(0.99975);
+		double temperature(DBL_MAX);
+		double cooling_rate(1.0);
 		std::array<double, 2> weightSum;
 		std::array<std::vector<Statistics>,2> stats;
 		
@@ -63,14 +62,14 @@ namespace algorithms {
 		Run run;
 		auto start = std::chrono::steady_clock::now();
 		Solution incumbent=run.best = run.init = initial;
-		unsigned int iter = 1, no_imp_iter = 1;
+		unsigned int iter = 1, no_imp_iter=0;
 		
 		Solution s;
 		while (iter <= max_iterations) {
 			int removalIndex = RouletteWheelSelection(stats[0],weightSum[0]);
 			int insertionIndex = RouletteWheelSelection(stats[1],weightSum[1]);
 
-			s = stats[0][removalIndex].heuristic(incumbent, { removalPercentage,removalRandomness });
+			s = stats[0][removalIndex].heuristic(incumbent, { randlib.unifrnd(0.05,0.05+removalPercentage),removalRandomness });
 			for (EAV* v : inst.vehicles) {
 				Route route = s.routes[v];
 				route.deleteRedundantChargingStations();
@@ -86,57 +85,75 @@ namespace algorithms {
 				incumbent = s;
 				stats[0][removalIndex].score += 10;
 				stats[1][insertionIndex].score += 10;
-				no_imp_iter = 0;
+				
+
+				if (s.rejected.size() < run.best.rejected.size()) {
+					incumbent = run.best = s;
+					stats[0][removalIndex].score += 10;
+					stats[1][insertionIndex].score += 10;
+					run.best_iter = iter;
+					std::cout << "New best Found: " << s.objectiveValue() << ". Temperature: " << temperature << std::endl;
+					no_imp_iter=0;
+				}
+				else if (s.rejected.size() == run.best.rejected.size() && FixedDouble(s.objectiveValue(), 5) < FixedDouble((1.0 + intra_percentage) * run.best.objectiveValue(), 5)) {
+					exchangeOrigin(s, NeighborChoice::BEST);
+					exchangeDestination(s, NeighborChoice::BEST);
+					exchangeConsecutive(s, NeighborChoice::BEST);
+					moveStation(s, NeighborChoice::BEST);
+					if (FixedDouble(s.objectiveValue(), 5) < FixedDouble(run.best.objectiveValue(), 5)) {
+						incumbent = run.best = s;
+						stats[0][removalIndex].score += 10;
+						stats[1][insertionIndex].score += 10;
+						run.best_iter = iter;
+						std::cout << "New best Found: " << s.objectiveValue() << ". Temperature: " << temperature << std::endl;
+						no_imp_iter = 0;
+					}
+				}
 
 			}
 			else if (s.rejected.size() == incumbent.rejected.size()) {
-				if (FixedDouble(s.objectiveValue(), 2) < FixedDouble(incumbent.objectiveValue(), 2)) {
+				if (FixedDouble(s.objectiveValue(), 5) < FixedDouble(incumbent.objectiveValue(), 5)) {
 					incumbent = s;
 					stats[0][removalIndex].score += 10;
 					stats[1][insertionIndex].score += 10;
-					no_imp_iter = 0;
 				}
-				else if (SimulatedAnnealingAcceptanceCriterion(s, incumbent, temperature))
-				{
+				else if (SimulatedAnnealingAcceptanceCriterion(s, incumbent, temperature)) {
 					incumbent = s;
 					stats[0][removalIndex].score += 5;
 					stats[1][insertionIndex].score += 5;
 				}
 
-				if (s.rejected.size() < run.best.rejected.size()) {
-					incumbent = run.best = s;
-					stats[0][removalIndex].score += 20;
-					stats[1][insertionIndex].score += 20;
-					no_imp_iter = 0;
-					run.best_iter = iter;
-				}
-				else if (s.rejected.size() == run.best.rejected.size() && FixedDouble(s.objectiveValue(), 2) < FixedDouble((1.0 + intra_percentage) * run.best.objectiveValue(), 2)) {
+				if (s.rejected.size() == run.best.rejected.size() && FixedDouble(s.objectiveValue(), 5) < FixedDouble((1.0 + intra_percentage) * run.best.objectiveValue(), 5)) {
 					exchangeOrigin(s, NeighborChoice::BEST);
 					exchangeDestination(s, NeighborChoice::BEST);
 					exchangeConsecutive(s, NeighborChoice::BEST);
 					moveStation(s, NeighborChoice::BEST);
-					if (s.objectiveValue() < run.best.objectiveValue()) {
+					if (FixedDouble(s.objectiveValue(),5) < FixedDouble(run.best.objectiveValue(),5)) {
 						incumbent = run.best = s;
 						stats[0][removalIndex].score += 20;
 						stats[1][insertionIndex].score += 20;
-						no_imp_iter = 0;
 						run.best_iter = iter;
+						std::cout << "New best Found: " << s.objectiveValue() <<". Temperature: " << temperature << std::endl;
+						no_imp_iter=0;
 					}
 				}
 			}
 
-			if (noFeasibleFound && run.best.rejected.empty()) noFeasibleFound = false;
+			if (noFeasibleFound && run.best.rejected.empty()) {
+				noFeasibleFound = false;
+				printf("Feasible found! ");
+				temperature = -temperature_control * run.best.objectiveValue() / log(0.5);
+				std::cout << "Temperature: " << temperature;
+				cooling_rate = pow(0.01 / temperature, 1.0 / (max_iterations - iter));
+				std::cout << " Cooling Rate: " << cooling_rate << "\n";
+			}
 			
 
 			iter++;
 			no_imp_iter++;
-			temperature*=cooling_rate;
-			if (no_imp_iter > 3 * segment_size) {
-				temperature = 15.0;
-				std::cout << "Stuck in local optima. Reset Temperature\n";
-				no_imp_iter = 0;
-			}
+			temperature *= cooling_rate;
 
+			
 			if (iter % segment_size == 0) {
 				
 				for (int i = 0; i < 2; i++) {
@@ -156,7 +173,7 @@ namespace algorithms {
 			run.elapsed_seconds = elapsed / 1000.0;
 			if (run.elapsed_seconds > max_seconds) break;
 		}
-		run.best.deleteEmptyRoutes();
+		std::cout << "Temperature: " << temperature << "\n";
 		return run;
 	}
 
@@ -287,7 +304,7 @@ namespace algorithms {
 					}
 				}
 			}
-			return strong_batset.empty() ? weak_batset : strong_batset ;
+			return strong_batset.empty()?weak_batset:strong_batset;
 		}
 		
 		double DistanceBetweenUsers(Request* r1, Request* r2) {
@@ -383,7 +400,7 @@ namespace algorithms {
 			std::shuffle(unassigned.begin(), unassigned.end(), std::random_device());
 			for (EAV* v : vehicles) {
 				for (int i = 0; i < unassigned.size();i++) {
-					std::vector<Position> possibleMoves = InsertionNeighborhood(unassigned[i], solution, { v }, true);
+					std::vector<Position> possibleMoves = InsertionNeighborhood(unassigned[i], solution, { v },true);
 					Position min_pos;
 					double min_cost(DBL_MAX);
 					for (Position pos : possibleMoves) {
@@ -1076,7 +1093,7 @@ namespace algorithms {
 				double bestCost(DBL_MAX) ;
 				Assignment min_pair;
 				for (Assignment pair : s.removed) {
-					std::vector<Position> possibleMoves = InsertionNeighborhood(pair.first, s, inst.vehicles, true);
+					std::vector<Position> possibleMoves = InsertionNeighborhood(pair.first, s, inst.vehicles,true);
 					Position min_pos;
 					double min_cost(DBL_MAX);
 					for (Position move : possibleMoves) {
@@ -1122,7 +1139,7 @@ namespace algorithms {
 				size_t min_size = SIZE_MAX;
 				Assignment min_pair;
 				for (Assignment pair : s.removed) {
-					std::vector<Position> possibleMoves = InsertionNeighborhood(pair.first, s, inst.vehicles, true);
+					std::vector<Position> possibleMoves = InsertionNeighborhood(pair.first, s, inst.vehicles,true);
 					std::vector<Position> feasibleMoves;
 					feasibleMoves.reserve(possibleMoves.size());
 					for (size_t i = 0; i < possibleMoves.size(); i++) {
@@ -1180,7 +1197,7 @@ namespace algorithms {
 				double max_regret = -DBL_MAX;
 				Assignment min_pair;
 				for (Assignment pair : s.removed) {
-					std::vector<Position> possibleMoves = InsertionNeighborhood(pair.first, s, inst.vehicles, true);
+					std::vector<Position> possibleMoves = InsertionNeighborhood(pair.first, s, inst.vehicles,true);
 					std::vector<Position> feasibleMoves;
 					feasibleMoves.reserve(possibleMoves.size());
 					for (size_t i = 0; i < possibleMoves.size(); i++) {
@@ -1278,7 +1295,7 @@ namespace algorithms {
 					if (route.isFeasible()) {
 						Solution neighbor = s;
 						neighbor.addRoute(route);
-						std::vector<Position> possibleMoves = InsertionNeighborhood(req, neighbor, inst.vehicles, true);
+						std::vector<Position> possibleMoves = InsertionNeighborhood(req, neighbor, inst.vehicles,true);
 						Position min_pos;
 						double min_cost = DBL_MAX;
 						for (Position move : possibleMoves) {

@@ -213,27 +213,33 @@ void Route::computeTotalCost(bool debug) {
     travel_distance = excess_ride_time = 0.0;
 
     for (int i = 0; i < n - 1; i++) {
-        travel_distance += inst.getTravelTime(path[i], path[i + 1]);
+        
         if (loads[i] > vehicle->capacity) {
+            travel_distance = DBL_MAX;
             capacityFeasible = false;
             if (debug) std::cout << "Capacity Infeasible" << std::endl;
             return;
         }
-        if (FixedDouble(battery[i],3)<FixedDouble()) {
+      
+        if (FixedDouble(battery[i], 3) < FixedDouble()) {
             batteryFeasible = false;
+            travel_distance = DBL_MAX;
             if (debug) {
                 std::cout << "Battery Infeasible: " << FixedDouble(battery[i], 3) << std::endl;
             }
             return;
         }
-        if (FixedDouble(path[i]->latest, 3) < FixedDouble(start_of_service_times[i],3) || FixedDouble(path[i]->maximum_travel_time,3) < FixedDouble(getRideTime(i),3)) {
+        if (FixedDouble(path[i]->latest, 3) < FixedDouble(start_of_service_times[i], 3) || FixedDouble(path[i]->maximum_travel_time, 3) < FixedDouble(getRideTime(i), 3)) {
             timeFeasible = false;
-            if (debug) { 
-                std::cout << "Time Window:" << FixedDouble(start_of_service_times[i] - path[i]->latest,3) << "\n";
+            travel_distance = DBL_MAX;
+            if (debug) {
+                std::cout << "Time Window:" << FixedDouble(start_of_service_times[i] - path[i]->latest, 3) << "\n";
                 std::cout << "Ride Time:" << getRideTime(i) << "\n";
             }
             return;
         }
+        
+        travel_distance += inst.getTravelTime(path[i], path[i + 1]);
         if (path[i]->isDestination()) {
             excess_ride_time += getRideTime(i) - inst.getTravelTime(path[i], path[i + 1]);
         }
@@ -242,20 +248,23 @@ void Route::computeTotalCost(bool debug) {
 
     if (loads.back() > vehicle->capacity) {
         capacityFeasible = false;
+        travel_distance = DBL_MAX;
         if (debug) std::cout << "Capacity Infeasible" << std::endl;
         return;
     }
-    if (FixedDouble(battery.back(),3) < FixedDouble(vehicle->total_battery*vehicle->battery_return_percentage,3)) {
+    if (FixedDouble(battery.back(), 3) < FixedDouble(vehicle->total_battery * vehicle->battery_return_percentage, 3)) {
         batteryFeasible = false;
+        travel_distance = DBL_MAX;
         if (debug) {
-            std::cout << "Return Battery Infeasible: " << FixedDouble(battery.back()- vehicle->total_battery * vehicle->battery_return_percentage,3) << "\n";
+            std::cout << "Return Battery Infeasible: " << FixedDouble(battery.back() - vehicle->total_battery * vehicle->battery_return_percentage, 3) << "\n";
         }
         return;
     }
-    if (FixedDouble(vehicle->end_time, 3) < FixedDouble(start_of_service_times.back(),3)) {
+    if (FixedDouble(vehicle->end_time, 3) < FixedDouble(start_of_service_times.back(), 3)) {
         timeFeasible = false;
+        travel_distance = DBL_MAX;
         if (debug) {
-            std::cout << "Time Window:" << FixedDouble(start_of_service_times.back() - vehicle->end_time,3) << "\n";
+            std::cout << "Time Window:" << FixedDouble(start_of_service_times.back() - vehicle->end_time, 3) << "\n";
         }
         return;
     }
