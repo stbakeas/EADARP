@@ -12,6 +12,25 @@
 #include <ctime>
 #include "FixedDouble.h"
 
+std::vector<std::vector<size_t>> PowerSet(std::vector<size_t> set, int n)
+{
+	bool* contain = new bool[n] {0};
+	std::vector<std::vector<size_t>> power_set;
+	for (int i = 0; i < n; i++)
+	{
+		std::vector<size_t> subset;
+		contain[i] = 1;
+		// All permutation
+		do
+		{
+			for (int j = 0; j < n; j++)
+				if (contain[j]) subset.push_back(set[j]);
+
+		} while (std::prev_permutation(contain, contain + n));
+		power_set.push_back(subset);
+	}
+	return power_set;
+}
 
 namespace algorithms {
 
