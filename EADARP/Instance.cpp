@@ -8,6 +8,9 @@
 #include <numeric>
 #include "RandLib.h"
 #include <set>
+#include "FixedDouble.h"
+#include "Route.h"
+
 Instance::~Instance()
 {
     for (Node* node : nodes)
@@ -204,7 +207,7 @@ void Instance::loadCordeau(const std::string instance_file_name) {
         file >> node->load;
         file >> node->earliest;
         file >> node->latest;
-        node->maximum_travel_time = 120.0;
+        node->maximum_travel_time = DBL_MAX;
 
         // Add type of node
         if (node->load > 0)
@@ -242,7 +245,7 @@ void Instance::loadCordeau(const std::string instance_file_name) {
     double ride_time;
     for (int i = 0; i < requests_num; i++) {
         file >> ride_time;
-        nodes[i + requests_num]->maximum_travel_time = ride_time;
+        nodes[i]->maximum_travel_time = ride_time;
         requests.push_back(new Request(nodes[i], nodes[i + requests_num]));
     }
 
@@ -354,19 +357,37 @@ void Instance::createSimilarityMatrix()
 
 void Instance::Preprocessing() {
 
-    //Time Window Tightening
+   
     for (int i = 0; i < requests.size(); i++) {
-        if (nodes[i]->latest < inst.Horizon) {
+        if (dbl_round(nodes[i]->latest-1440.0,2)<0.0) {
 
             nodes[i + requests.size()]->earliest = std::max(0.0, nodes[i]->earliest + nodes[i]->service_duration +
                 getTravelTime(nodes[i], nodes[i + requests.size()]));
-            nodes[i + requests.size()]->latest = std::min(Horizon, nodes[i]->latest + nodes[i]->service_duration + nodes[i + requests.size()]->maximum_travel_time);
+            nodes[i + requests.size()]->latest = std::min(Horizon, nodes[i]->latest + nodes[i]->service_duration + nodes[i]->maximum_travel_time);
 
         }
         else {
-            nodes[i]->earliest = std::max(0.0, nodes[i + requests.size()]->earliest - nodes[i]->service_duration - nodes[i + requests.size()]->maximum_travel_time);
+            nodes[i]->earliest = std::max(0.0, nodes[i + requests.size()]->earliest - nodes[i]->service_duration - nodes[i]->maximum_travel_time);
             nodes[i]->latest = std::min(Horizon, nodes[i + requests.size()]->latest - nodes[i]->service_duration - inst.getTravelTime(nodes[i], nodes[i + requests.size()]));
         }
+    }
+
+    for (EAV* v : inst.vehicles) {
+        Node* start_depot = inst.getDepot(v, "start");
+        Node* end_depot = inst.getDepot(v, "end");
+        double min_quantity = DBL_MAX;
+        for (int i = 0; i < 2 * requests.size(); i++) {
+            double quantity = nodes[i]->earliest - inst.getTravelTime(start_depot, nodes[i]);
+            if (min_quantity > quantity) min_quantity = quantity;
+        }
+        v->start_time = std::max(v->start_time, min_quantity);
+        double max_quantity = -DBL_MAX;
+        for (int i = 0; i < 2 * requests.size(); i++) {
+            double quantity = nodes[i]->latest + nodes[i]->service_duration + inst.getTravelTime(nodes[i], end_depot);
+            if (max_quantity < quantity) max_quantity = quantity;
+        }
+        v->end_time = std::min(v->end_time, max_quantity);
+        
     }
    
     //Arc Elimination
@@ -374,10 +395,6 @@ void Instance::Preprocessing() {
     for (int i = 0; i < distanceMatrix.size(); i++) {
         for (int j = 0; j < distanceMatrix.size(); j++) {
             if (i != j) {
-                if (nodes[i]->isOrigin() && getTravelTime(nodes[i], nodes[j]) + nodes[j]->service_duration + getTravelTime(nodes[j], nodes[i + n]) > nodes[i + n]->maximum_travel_time) {
-                    distanceMatrix[i][j] = DBL_MAX;
-                    distanceMatrix[j][n + i] = DBL_MAX;
-                }
 
                 if ((abs(nodes[i]->load + nodes[j]->load) > inst.maximumCapacity) ||
                     (nodes[i]->isStartingDepot() && nodes[j]->isDestination()) ||
@@ -385,13 +402,13 @@ void Instance::Preprocessing() {
                     (nodes[i]->isOrigin() && nodes[j]->isChargingStation()) ||
                     (nodes[i]->isChargingStation() && nodes[j]->isDestination()) ||
                     (nodes[i]->isDestination() && nodes[j]->isOrigin() && i == j + n) ||
-                    (nodes[i]->earliest + nodes[i]->service_duration + getTravelTime(nodes[i], nodes[j]) > nodes[j]->latest)
-                    /*||
-                    (nodes[i]->isEndingDepot()) ||
-                    (nodes[j]->isStartingDepot())*/
-                    )
+                    (nodes[i]->earliest + nodes[i]->service_duration + getTravelTime(nodes[i], nodes[j]) > nodes[j]->latest))
                 {
                     distanceMatrix[i][j] = DBL_MAX;
+                }
+                else if (nodes[i]->isOrigin() && getTravelTime(nodes[i], nodes[j]) + nodes[j]->service_duration + getTravelTime(nodes[j], nodes[i + n]) > nodes[i]->maximum_travel_time) {
+                    distanceMatrix[i][j] = DBL_MAX;
+                    distanceMatrix[j][n + i] = DBL_MAX;
                 }
 
             } 
@@ -460,14 +477,6 @@ Node* Instance::getDepot(EAV* vehicle,std::string start_or_end)
 
 double Instance::getTravelTime(Node* n1, Node* n2, bool costMode)
 {
-    //if (costMode) {
-    //    //Exponential
-    //    if (distanceMatrix[n1->id - 1][n2->id - 1]/maxDistance < avgDistance)
-    //        return avgDistance - smoothingFactor/(exp(smoothingFactor/(avgDistance - distanceMatrix[n1->id - 1][n2->id - 1]/maxDistance))-1);
-    //    else
-    //        return avgDistance + smoothingFactor /(exp(smoothingFactor /(distanceMatrix[n1->id - 1][n2->id - 1] / maxDistance-avgDistance)) - 1);
-    //}
-    //else 
     return distanceMatrix[n1->id - 1][n2->id - 1];
 }
 

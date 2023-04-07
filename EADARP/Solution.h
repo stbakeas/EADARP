@@ -41,11 +41,6 @@ public:
 	void deleteEmptyRoutes();
 
 	/*
-	* Used in Su et. al. (2021) for the EADARP
-	*/
-	void FixHardConstraints();
-
-	/*
 	* Prints the routes on the screen
 	*/
 	void Display(int what);
