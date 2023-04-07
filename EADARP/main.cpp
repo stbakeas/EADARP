@@ -42,7 +42,7 @@ void CordeauExperiment(int numberOfRuns) {
 			int avg_best_iter(0), successfulRuns(0);
 			for (int i = 0; i < numberOfRuns; i++) {
 				printf("%s%d\n", "Run ID: ", i);
-				Run run = algorithms::ALNS(algorithms::details::Init1(), 1000, INT_MAX,0.05,7, 0.1, 100, 0.5);
+				Run run = algorithms::ALNS(algorithms::details::Init1(), 10000, INT_MAX,0.05,7, 0.1, 100, 0.5);
 				if (run.best.rejected.empty()) {
 					successfulRuns++;
 					avgCost += run.best.objectiveValue();
@@ -66,8 +66,6 @@ void CordeauExperiment(int numberOfRuns) {
 }
 
 int main(){
-	inst.loadCordeau("Cordeau-EADARP/a8-96.txt");
-	Run run = algorithms::ALNS(algorithms::details::Init1(), 1000, INT_MAX, 0.05, 7, 0.1, 100, 0.5);
-	run.best.Display(1);
+	CordeauExperiment(1);
 	return EXIT_SUCCESS;
 }

@@ -9,6 +9,7 @@ Solution::Solution(){
     total_travel_distance = total_excess_ride_time = 0.0;
     rejected.reserve(inst.requests.size());
     removed.reserve(inst.requests.size()/2);
+    for (CStation* s : inst.charging_stations) stationVisits[s] = 0;
 }
 
 double Solution::objectiveValue() const
@@ -22,9 +23,11 @@ void Solution::addRoute(Route r)
     if (routes.contains(r.vehicle)) { 
         total_travel_distance-=routes[r.vehicle].travel_distance;
         total_excess_ride_time-=routes[r.vehicle].excess_ride_time;
+        for (CStation* s : inst.charging_stations) if (routes[r.vehicle].assigned_cs[s]) stationVisits[s]--;
     }
     total_travel_distance+=r.travel_distance;
     total_excess_ride_time+=r.excess_ride_time;
+    for (CStation* s : inst.charging_stations) if (r.assigned_cs[s]) stationVisits[s]++;
     routes[r.vehicle] = r;
 }
 
@@ -77,8 +80,13 @@ double Solution::getInsertionCost(Request* r, Position p) {
     test_route = old_route;
     if (p.cs_pos.size()) {
         for (const auto& [station, node] : p.cs_pos) {
-            test_route.insertNode(inst.nodes[station->id - 1], test_route.node_indices[node] + 1);
-            test_route.updateMetrics();
+            int index = test_route.node_indices[node] + 1;
+            std::for_each(test_route.path.begin() + index, test_route.path.end(), [&test_route](Node* node)
+                {test_route.node_indices[node]++;}
+            );
+            test_route.insertNode(inst.nodes[station->id - 1],index);
+            test_route.node_indices[inst.nodes[station->id - 1]] = index;
+            inst.operationsSaved++;
         }
     }
     test_route.insertRequest(r, p.origin_pos + 1, p.dest_pos + 1);

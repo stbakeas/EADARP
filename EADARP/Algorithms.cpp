@@ -72,10 +72,8 @@ namespace algorithms {
 		stats[0].emplace_back(RandomRemoval, 0.25, 0, 0);
 		stats[0].emplace_back(SimilarityRemoval, 0.25, 0, 0);
 		weightSum[0] = 1.0;
-		stats[1].emplace_back(RegretInsertion, 0.25, 0, 0);
-		stats[1].emplace_back(GreedyInsertion, 0.25, 0, 0);
-		stats[1].emplace_back(LeastOptionsInsertion, 0.25, 0, 0);
-		stats[1].emplace_back(RandomInsertion, 0.25, 0, 0);
+		stats[1].emplace_back(RegretInsertion, 0.5, 0, 0);
+		stats[1].emplace_back(GreedyInsertion, 0.5, 0, 0);
 		weightSum[1] = 1.0;
 			
 		bool noFeasibleFound = true;
@@ -115,7 +113,7 @@ namespace algorithms {
 					stats[0][removalIndex].score += 10;
 					stats[1][insertionIndex].score += 10;
 					run.best_iter = iter;
-					//std::cout << "New best Found: " << s.objectiveValue() << "," << s.rejected.size() << "\n";
+					std::cout << "New best Found: " << s.objectiveValue() << "," << s.rejected.size() << "\n";
 					no_imp_iter=0;
 				}
 				else if (s.rejected.size() == run.best.rejected.size() && dbl_round(s.objectiveValue(), 5) < dbl_round((1.0 + intra_percentage) * run.best.objectiveValue(), 5)) {
@@ -128,7 +126,7 @@ namespace algorithms {
 						stats[0][removalIndex].score += 10;
 						stats[1][insertionIndex].score += 10;
 						run.best_iter = iter;
-						//std::cout << "New best Found: " << s.objectiveValue() << "\n";
+						std::cout << "New best Found: " << s.objectiveValue() << "\n";
 						no_imp_iter = 0;
 					}
 				}
@@ -156,7 +154,7 @@ namespace algorithms {
 						stats[0][removalIndex].score += 20;
 						stats[1][insertionIndex].score += 20;
 						run.best_iter = iter;
-						//std::cout << "New best Found: " << s.objectiveValue() << "\n";
+						std::cout << "New best Found: " << s.objectiveValue() << "\n";
 						no_imp_iter=0;
 					}
 				}
@@ -195,6 +193,7 @@ namespace algorithms {
 			run.elapsed_seconds = elapsed / 1000.0;
 			if (run.elapsed_seconds > max_seconds) break;
 		}
+		std::cout << "Elapsed time: " << run.elapsed_seconds << "\n";
 		std::cout << "Temperature: " << temperature << "\n";
 		return run;
 	}
@@ -219,13 +218,12 @@ namespace algorithms {
 			capset.reserve(reserve_size);
 			for (EAV* v : available_vehicles) {
 				if (r->forbidden_vehicles.contains(v->id)) continue;
-
+				size_t length = s.routes[v].path.size() - 1;
 				bool batteryNotFound = true;
-				size_t length = s.routes[v].path.size();
-				for (size_t i = 0; i < length - 1; ++i)
+				for (size_t i = 0; i < length; ++i)
 				{
 					if (inst.isForbiddenArc(s.routes[v].path[i], r->origin)) continue;
-					for (size_t j = i; j < length - 1; ++j)
+					for (size_t j = i; j < length; ++j)
 					{
 
 						if (i == j) {
@@ -274,7 +272,7 @@ namespace algorithms {
 						for (Node* zero_load_node : subset) {
 							int node_index = s.routes[v].node_indices[zero_load_node];
 							CStation* min_s = 
-								s.routes[v].findBestChargingStationAfter(node_index);
+								s.routes[v].findBestChargingStationAfter(node_index,s.stationVisits);
 							if (min_s != nullptr) {
 								Node* cs_node = inst.nodes[min_s->id - 1];
 								s.routes[v].insertNode(cs_node, node_index + 1);
@@ -284,11 +282,11 @@ namespace algorithms {
 							
 						}
 						if (s.routes[v].isFeasible() && !added_stations.empty()) {
-							length = s.routes[v].path.size();
-							for (size_t i = 0; i < length - 1; ++i)
+							length = s.routes[v].path.size() - 1;
+							for (size_t i = 0; i < length; ++i)
 							{
 								if (inst.isForbiddenArc(s.routes[v].path[i], r->origin)) continue;
-								for (size_t j = i; j < length - 1; ++j)
+								for (size_t j = i; j < length; ++j)
 								{
 
 									if (i == j) {
@@ -320,10 +318,22 @@ namespace algorithms {
 						}
 						for (const auto& [station,node]:added_stations) {
 							Node* cs_node = inst.nodes[station->id - 1];
-							s.routes[v].removeNode(s.routes[v].node_indices[cs_node]);
+							int node_index = s.routes[v].node_indices[cs_node];
+							s.routes[v].removeNode(node_index);
+							s.routes[v].node_indices.erase(cs_node);
+							std::for_each(s.routes[v].path.begin() + node_index, s.routes[v].path.end(), [&s,v](Node* node)
+								{
+									s.routes[v].node_indices[node]--;
+								}
+							); 
+							inst.operationsSaved++;
+						}
+						if (!added_stations.empty()) {
 							s.routes[v].updateMetrics();
+							inst.operationsSaved--;
 						}
 						if (positionFound) break;
+
 					}
 				}
 			}
@@ -359,8 +369,13 @@ namespace algorithms {
 					Route inserted_route = solution.routes[min_pos.vehicle];
 					if (min_pos.cs_pos.size()) {
 						for (const auto& [station, node] : min_pos.cs_pos) {
-							inserted_route.insertNode(inst.nodes[station->id - 1],inserted_route.node_indices[node]+1);
-							inserted_route.updateMetrics();
+							int index = inserted_route.node_indices[node] + 1;
+							std::for_each(inserted_route.path.begin()+index, inserted_route.path.end(), [&inserted_route](Node* node) {
+								inserted_route.node_indices[node]++;
+							});
+							inserted_route.insertNode(inst.nodes[station->id - 1],index);
+							inserted_route.node_indices[inst.nodes[station->id - 1]] = index;
+							inst.operationsSaved++;
 						}
 					}
 					inserted_route.insertRequest(request, min_pos.origin_pos + 1, min_pos.dest_pos + 1);
@@ -1160,8 +1175,15 @@ namespace algorithms {
 					Route new_route = s.routes[bestMove.vehicle];
 					if (bestMove.cs_pos.size()) {
 						for (const auto& [station, node] : bestMove.cs_pos) {
-							new_route.insertNode(inst.nodes[station->id - 1], new_route.node_indices[node] + 1);
-							new_route.updateMetrics();
+							int index = new_route.node_indices[node] + 1;
+							std::for_each(new_route.path.begin() + index, new_route.path.end(),
+								[&new_route](Node* node) {
+									new_route.node_indices[node]++;
+								}
+							);
+							new_route.insertNode(inst.nodes[station->id - 1], index);
+							new_route.node_indices[inst.nodes[station->id-1]]=index;
+							inst.operationsSaved++;
 						}
 					}
 					new_route.insertRequest(min_pair.first, bestMove.origin_pos + 1, bestMove.dest_pos + 1);
@@ -1220,8 +1242,13 @@ namespace algorithms {
 					Route new_route = s.routes[bestMove.vehicle];
 					if (bestMove.cs_pos.size()) {
 						for (const auto& [station, node] : bestMove.cs_pos) {
-							new_route.insertNode(inst.nodes[station->id - 1], new_route.node_indices[node] + 1);
-							new_route.updateMetrics();
+							int index = new_route.node_indices[node] + 1;
+							std::for_each(new_route.path.begin() + index, new_route.path.end(), [&new_route](Node* node)
+								{new_route.node_indices[node]++;}
+							);
+							new_route.insertNode(inst.nodes[station->id - 1], index);
+							new_route.node_indices[inst.nodes[station->id - 1]] = index;
+							inst.operationsSaved++;
 						}
 					}
 					new_route.insertRequest(min_pair.first, bestMove.origin_pos + 1, bestMove.dest_pos + 1);
@@ -1254,8 +1281,13 @@ namespace algorithms {
 					Route new_route = s.routes[bestMove.vehicle];
 					if (bestMove.cs_pos.size()) {
 						for (const auto& [station, node] : bestMove.cs_pos) {
-							new_route.insertNode(inst.nodes[station->id - 1], new_route.node_indices[node] + 1);
-							new_route.updateMetrics();
+							int index = new_route.node_indices[node] + 1;
+							std::for_each(new_route.path.begin() + index, new_route.path.end(), [&new_route](Node* node)
+								{new_route.node_indices[node]++; }
+							);
+							new_route.insertNode(inst.nodes[station->id - 1], index);
+							new_route.node_indices[inst.nodes[station->id - 1]] = index;
+							inst.operationsSaved++;
 						}
 					}
 					new_route.insertRequest(request, bestMove.origin_pos + 1, bestMove.dest_pos + 1);
@@ -1338,8 +1370,13 @@ namespace algorithms {
 					Route new_route = s.routes[bestMove.vehicle];
 					if (bestMove.cs_pos.size()) {
 						for (const auto& [station, node] : bestMove.cs_pos) {
-							new_route.insertNode(inst.nodes[station->id - 1], new_route.node_indices[node] + 1);
-							new_route.updateMetrics();
+							int index = new_route.node_indices[node] + 1;
+							std::for_each(new_route.path.begin() + index, new_route.path.end(), [&new_route](Node* node)
+								{new_route.node_indices[node]++; }
+							);
+							new_route.insertNode(inst.nodes[station->id - 1], index);
+							new_route.node_indices[inst.nodes[station->id - 1]] = index;
+							inst.operationsSaved++;
 						}
 					}
 					new_route.insertRequest(min_pair.first, bestMove.origin_pos + 1, bestMove.dest_pos + 1);
@@ -1380,9 +1417,9 @@ namespace algorithms {
 				for (Request* req : assigned) {
 					Route route = s.routes[assignment[req->origin->id]];
 					std::pair<size_t, size_t> position = route.getRequestPosition(req);
-					route.removeRequest(req);
-					route.updateMetrics();
-					route.insertRequest(pair.first, position.first, position.second-1);
+					route.path[position.first] = pair.first->origin;
+					route.path[position.second] = pair.first->destination;
+					inst.operationsSaved++;
 					route.updateMetrics();
 					if (route.isFeasible()) {
 						Solution intermediate = s;
@@ -1401,8 +1438,13 @@ namespace algorithms {
 							Route new_route = intermediate.routes[bestMove.vehicle];
 							if (bestMove.cs_pos.size()) {
 								for (const auto& [station, node] : bestMove.cs_pos) {
-									new_route.insertNode(inst.nodes[station->id - 1], new_route.node_indices[node] + 1);
-									new_route.updateMetrics();
+									int index = new_route.node_indices[node] + 1;
+									std::for_each(new_route.path.begin() + index, new_route.path.end(),
+										[&new_route](Node* node) { new_route.node_indices[node]++; }
+									);
+									new_route.insertNode(inst.nodes[station->id - 1],index);
+									new_route.node_indices[inst.nodes[station->id - 1]] = index;
+									inst.operationsSaved++;
 								}
 							}
 							new_route.insertRequest(req, bestMove.origin_pos + 1, bestMove.dest_pos + 1);

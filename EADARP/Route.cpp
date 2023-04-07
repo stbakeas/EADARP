@@ -23,6 +23,7 @@ Route::Route(EAV* vehicle) {
         desiredAmount[s] = 0.0;
         assigned_cs[s] = false;
     }
+
     policy = ChargingPolicy::MINIMAL;
     adaptiveCharging = true;
 }
@@ -136,7 +137,7 @@ double Route::getRideTime(int index) {
 
 void Route::LazyScheduling() {
     int n = (int)path.size();
-    double forward_time_slack_at_0 = get_modified_time_slack(0);
+    double forward_time_slack_at_0 = get_forward_time_slack(0);
 
     double cumul_waiting_time = 0.0;
     for (int i = 1; i < n - 1; i++) cumul_waiting_time += getWaitingTime(i);
@@ -151,7 +152,7 @@ void Route::LazyScheduling() {
     for (int j = 1; j < path.size() - 1; j++) {
         if (path[j]->isOrigin()) {
             // STEP 7 (a)
-            double forward_time_slack = get_modified_time_slack(j);
+            double forward_time_slack = get_forward_time_slack(j);
 
             // STEP 7 (b) 
            cumul_waiting_time = 0.0;
@@ -166,6 +167,11 @@ void Route::LazyScheduling() {
         }
     }
 
+}
+
+void Route::RideTimeOrientedScheduling()
+{
+    
 }
 
 void Route::updateMetrics(bool debug) {
@@ -208,18 +214,29 @@ void Route::computeStartOfServiceTime(int i)
 }
 
 void Route::deleteRedundantChargingStations()
-{
+{ 
+    bool routeChanged = false;
     for (auto pair:desiredAmount){
         Node* cs_node = inst.nodes[pair.first->id - 1];
         if (node_indices.contains(cs_node)) {
             int index = node_indices[cs_node];
             double charging_time = pair.first->getRequiredTime(battery[index],desiredAmount[pair.first]);
-            if (dbl_round(charging_time,0)==0) {
+            if (dbl_round(charging_time,1)==0.0) {
               removeNode(index);
-              updateMetrics();
+              node_indices.erase(cs_node);
+              std::for_each(path.begin() + index, path.end(),
+                  [this](Node* node) {node_indices[node]--; }
+              );
+              inst.operationsSaved++;
+              routeChanged = true;
             }
         }
     }
+    if (routeChanged) { 
+        updateMetrics();
+        inst.operationsSaved--;
+    }
+
 }
 
 void Route::computeBatteryLevel(int i) {
@@ -318,7 +335,7 @@ double Route::getDuration()
 //This function inserts a node in a route before the specified index
 void Route::insertNode(Node* node, int index)
 {
-    if (isEmpty()) path.push_back(node);
+    if (isEmpty())  path.push_back(node); 
     else {
         if (index < 1)
             perror("Error! Can not insert a node before the starting depot");
@@ -397,7 +414,7 @@ std::pair<size_t, size_t> Route::getRequestPosition(const Request* r) {
     return positions;
 }
 
-CStation* Route::findBestChargingStationAfter(int i) {
+CStation* Route::findBestChargingStationAfter(int i,std::unordered_map<CStation*,unsigned int> stationVisits) {
     //Find all the reachable stations from the zero-load node
     std::random_device rd;
     RandLib randlib(rd());
@@ -405,7 +422,7 @@ CStation* Route::findBestChargingStationAfter(int i) {
     std::vector<CStation*> reachable_stations;
     reachable_stations.reserve(inst.charging_stations.size());
     for (CStation* s : inst.charging_stations) {
-        if (!assigned_cs[s]) {
+        if (!assigned_cs[s] && stationVisits[s]<inst.maxVisitsPerStation) {
             if (battery[i] -
                 inst.getFuelConsumption(zero_load_node, inst.nodes[s->id - 1])
                 >= 0) reachable_stations.push_back(s);
@@ -553,9 +570,8 @@ bool Route::isInsertionTimeFeasible(Request* request, int i, int j)
         added_time = std::max(0.0, bos_origin + request->origin->service_duration + inst.getTravelTime(request->origin, path[i + 1]) 
             - start_of_service_times[i+1]);
         if (added_time > FTS[i + 1]) return false;
-
-        cumul_waiting_time = 0.0f;
-        for (int x = i + 1; x <= j; x++) cumul_waiting_time += getWaitingTime(x);
+        cumul_waiting_time = 0.0;
+        for (int x = i + 1; x < j+1; x++) cumul_waiting_time += getWaitingTime(x);
 
         double new_bos_j = start_of_service_times[j] + std::max(0.0, added_time - cumul_waiting_time);
         bos_destination = std::max(request->destination->earliest, new_bos_j + path[j]->service_duration + 

@@ -45,14 +45,13 @@ public:
     std::vector<std::vector<double>> distanceMatrix;
     std::vector<std::vector<double>> similarity;
     int numberOfDepots;
+    unsigned int maxVisitsPerStation;
+    int operationsSaved = 0;
     double Horizon;
     double dischargeRate;
     int maximumCapacity = 0.0;
     double returnedBatteryPercentage;
     double maximumBattery;
-
-    double smoothingFactor = 1.0;
-    double avgDistance,maxDistance;
 
     ~Instance();
     Instance(const Instance&) = delete;

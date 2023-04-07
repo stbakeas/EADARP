@@ -191,8 +191,8 @@ void Instance::loadCordeau(const std::string instance_file_name) {
     requests.reserve(requests_num);
 
     file >> start_depots_num >> end_depots_num >> stations_num >> station_copies;
-
-    charging_stations.reserve(station_copies * stations_num);
+    maxVisitsPerStation = station_copies;
+    charging_stations.reserve(stations_num);
 
     file >> Horizon;
 
@@ -294,6 +294,7 @@ void Instance::loadCordeau(const std::string instance_file_name) {
     createDistanceMatrix();
     createSimilarityMatrix();
     Preprocessing();
+
 }
 
 void Instance::createDistanceMatrix()
@@ -430,28 +431,6 @@ void Instance::Preprocessing() {
         }
         //printf("%s%i%s%i%s\n", "Request " , r->origin->id , " has " , r->forbidden_vehicles.size() , " forbidden vehicles");
     } 
-
-    //Average and Max Distance of Feasible Arcs
-    double sum = 0.0;
-    int counter = 0;
-    maxDistance = -1.0;
-    for (Node* n1 : inst.nodes) {
-        for (Node* n2 : inst.nodes) {
-            if (n1->id != n2->id && !inst.isForbiddenArc(n1, n2)) {
-                counter++;
-                if (inst.getTravelTime(n1, n2) > maxDistance) maxDistance = inst.getTravelTime(n1, n2);
-            }
-        }
-    }
-    for (Node* n1 : inst.nodes) {
-        for (Node* n2 : inst.nodes) {
-            if (n1->id != n2->id && !inst.isForbiddenArc(n1, n2)) {
-                sum += inst.getTravelTime(n1, n2) / maxDistance;
-            }
-        }
-    }
-    avgDistance = sum / counter;
-    std::cout << "Average Distance: " << avgDistance << "\n";
 }
 
 Instance& Instance::getUnique()

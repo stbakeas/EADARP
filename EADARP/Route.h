@@ -24,7 +24,6 @@ public:
 	std::vector<double> start_of_service_times;
 	std::unordered_map<CStation*, double> desiredAmount;
 	std::vector<int> loads;
-
 	//Version proposed by Savelsbergh (1995) for the PDPTW
 	std::vector<double> FTS;
 
@@ -50,7 +49,7 @@ public:
 	double getAddedDistance(Request* request, int i, int j) const; //For a request
 	double get_forward_time_slack(int i);
 	double get_modified_time_slack(int i);
-	CStation* findBestChargingStationAfter(int i);
+	CStation* findBestChargingStationAfter(int i, std::unordered_map<CStation*, unsigned int> stationVisits);
 
 
 	/**
@@ -76,11 +75,18 @@ public:
 	*/
 	void BasicScheduling();
 
-	/*Input: Sequence of n nodes, Existing Schedule
-	* Output: Schedule that minimizes ride time violations, while not increasing time window violations
+	/* Input: Sequence of n nodes, Existing Schedule
+	* Output: Schedule that minimizes maximum ride time constraint violations, 
+	*         while not increasing time window violations
 	* Runtime: O(n^2)
 	*/
 	void LazyScheduling();
+
+	/*Input: Sequence of n nodes, Existing Schedule
+	* Output: Schedule that minimizes excess ride time, while not increasing time window violations
+	* Runtime: O(n^2)
+	*/
+	void RideTimeOrientedScheduling();
 
 	~Route() {};
 	

@@ -13,6 +13,7 @@ public:
 	std::unordered_map<EAV*, Route> routes;
 	std::vector<Request*> rejected;
 	std::vector<std::pair<Request*, EAV*>> removed;
+	std::unordered_map<CStation*, unsigned int> stationVisits;
 	double total_travel_distance, total_excess_ride_time;
 
     double objectiveValue() const;
