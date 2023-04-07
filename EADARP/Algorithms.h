@@ -53,11 +53,6 @@ namespace algorithms
 		Solution Init1();
 
 		/*
-		* Sequential Insertion Heuristic based on acquisition cost
-		*/
-		Solution Init4();
-
-		/*
 		 Removes a zero-load arcs from two routes and then connects 
 		 the first part of the first route with the second part of the second route and vice versa.
 		*/
@@ -123,11 +118,14 @@ namespace algorithms
 		//Empty
 		Solution LeastOptionsInsertion(Solution s, std::vector<double> arguments);
 
+
 		/*
 		* Regret Degree = 0
 		*/
 		Solution RegretInsertion(Solution s, std::vector<double> arguments);
 
+
+		Solution RandomInsertion(Solution s, std::vector<double> arguments);
 
 		/*
 		Proposed by Ying Luo and Paul Schonfeld in 2007
