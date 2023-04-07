@@ -7,6 +7,8 @@
 #include "RandLib.h"
 #include "EAV.h"
 
+double dbl_round(long double number, int precision);
+
 class Route {
 public:
 	enum class ChargingPolicy{FULL,MINIMAL,CONSERVATIVE};
@@ -47,6 +49,7 @@ public:
 	double getAddedDistance(Node* node, int i) const; //For a single node
 	double getAddedDistance(Request* request, int i, int j) const; //For a request
 	double get_forward_time_slack(int i);
+	double get_modified_time_slack(int i);
 	CStation* findBestChargingStationAfter(int i);
 
 

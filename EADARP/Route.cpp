@@ -9,6 +9,11 @@
 #include "Position.h"
 #include "FixedDouble.h"
 
+double dbl_round(long double number, int precision) {
+    int decimals = std::pow(10, precision);
+    return (std::round(number * decimals)) / decimals;
+}
+
 Route::Route(EAV* vehicle) {
 	this->vehicle = vehicle;
     batteryFeasible = true;
@@ -31,7 +36,7 @@ bool Route::isEmpty() {
 }
 
 bool Route::hasNoRequests() {
-    return requests.size()==0;
+    return requests.empty();
 }
 
 bool Route::isFeasible() {
@@ -45,13 +50,13 @@ void Route::BasicScheduling() {
     FTS.clear();
     FTS.resize(n);
 
-    for (int i = 0; i < n; i++) computeStartOfServiceTime(i);
+    start_of_service_times.front() = vehicle->start_time;
+    for (int i = 1; i < n; i++) computeStartOfServiceTime(i);
 
     FTS.back() = std::max(0.0, vehicle->end_time - start_of_service_times.back());
     for (int i = n - 2; i >= 0; i--) {
         FTS[i] = getWaitingTime(i) + std::min(FTS[i + 1], std::max(0.0, path[i]->latest - start_of_service_times[i]));
     }
-
 }
 
 void Route::storeNaturalSequences()
@@ -74,33 +79,64 @@ double Route::get_forward_time_slack(int i)
 
     for (int j = i; j < path.size(); j++) {
         double latest_j = (j == path.size() - 1) ? vehicle->end_time : path[j]->latest;
+        double ride_time = 0.0, max_travel_time=path[j]->maximum_travel_time;
+        if (path[j]->isDestination() && node_indices[inst.getRequest(path[j])->origin] < i) {
+            ride_time = getRideTime(node_indices[inst.getRequest(path[j])->origin]);
+            max_travel_time =inst.getRequest(path[j])->origin->maximum_travel_time;
+        }
         double cumul_waiting_time = 0.0;
-        for (int x = i + 1; x <= j; x++) cumul_waiting_time += getWaitingTime(x);
-        
+        for (int x = i+1; x < j+1; x++) cumul_waiting_time += getWaitingTime(x);
+
         double time_slack = cumul_waiting_time +
-            std::max(0.0, std::min(latest_j - start_of_service_times[j], path[j]->maximum_travel_time - getRideTime(j)));
+            std::max(0.0, std::min(latest_j - start_of_service_times[j], max_travel_time - ride_time));
 
         if (time_slack < min_time_slack)
             min_time_slack = time_slack;
     }
 
+    return min_time_slack;
+}
+
+double Route::get_modified_time_slack(int i) {
+    double min_time_slack = DBL_MAX;
+
+    for (int j = i; j < path.size(); j++) {
+        double latest_j = (j == path.size() - 1) ? vehicle->end_time : path[j]->latest;
+        double time_slack,cumul_waiting_time = 0.0;
+        for (int x = i + 1; x < j + 1; x++) cumul_waiting_time += getWaitingTime(x);
+        
+        if (path[j]->isDestination() && node_indices[inst.getRequest(path[j])->origin] < i)
+            time_slack = cumul_waiting_time;
+        else
+            time_slack = cumul_waiting_time + std::max(0.0,latest_j-start_of_service_times[j]);
+
+        if (time_slack < min_time_slack)
+            min_time_slack = time_slack;
+    }
 
     return min_time_slack;
 }
 
 double Route::getWaitingTime(int index) {
-    return (!index) ? 0 : start_of_service_times[index] -
-        (start_of_service_times[index - 1] + path[index - 1]->service_duration + inst.getTravelTime(path[index - 1], path[index]));
+    if (!index) return 0.0;
+    double arrival_at_index =
+        start_of_service_times[index - 1] + path[index - 1]->service_duration + inst.getTravelTime(path[index - 1], path[index]);
+    if (path[index - 1]->isChargingStation()) {
+        CStation* cs = inst.getChargingStation(path[index - 1]);
+        arrival_at_index += cs->getRequiredTime(battery[index - 1], desiredAmount[cs]);
+    }
+    return start_of_service_times[index] - arrival_at_index;
 }
 
 double Route::getRideTime(int index) {
-    return path[index]->isDestination() ? start_of_service_times[index]-(start_of_service_times[node_indices[inst.getRequest(path[index])->origin]]+
-        inst.getRequest(path[index])->origin->service_duration): 0.0;
+    return path[index]->isOrigin() ?
+        start_of_service_times[node_indices[inst.getRequest(path[index])->destination]]-
+        (start_of_service_times[index]+path[index]->service_duration): 0.0;
 }
 
 void Route::LazyScheduling() {
     int n = (int)path.size();
-    double forward_time_slack_at_0 = get_forward_time_slack(0);
+    double forward_time_slack_at_0 = get_modified_time_slack(0);
 
     double cumul_waiting_time = 0.0;
     for (int i = 1; i < n - 1; i++) cumul_waiting_time += getWaitingTime(i);
@@ -115,25 +151,18 @@ void Route::LazyScheduling() {
     for (int j = 1; j < path.size() - 1; j++) {
         if (path[j]->isOrigin()) {
             // STEP 7 (a)
-            double forward_time_slack = get_forward_time_slack(j);
+            double forward_time_slack = get_modified_time_slack(j);
 
-            // STEP 7 (b)
-            double w_j = getWaitingTime(j);
-            cumul_waiting_time = 0.0;
-            for (int x = j + 1; x < path.size(); x++) cumul_waiting_time += getWaitingTime(x);
+            // STEP 7 (b) 
+           cumul_waiting_time = 0.0;
+           for (int x = j+1; x < path.size()-1; x++) cumul_waiting_time += getWaitingTime(x);
 
-            w_j += std::min(forward_time_slack, cumul_waiting_time);
+           double w_j = std::min(forward_time_slack, cumul_waiting_time);
 
-            double departure_before_j = start_of_service_times[j - 1] + path[j - 1]->service_duration;
-            if (path[j - 1]->isChargingStation()) {
-                CStation* s = inst.getChargingStation(path[j - 1]);
-                departure_before_j += s->getRequiredTime(battery[j - 1], desiredAmount[s]);
-            }
-
-            start_of_service_times[j] = departure_before_j + inst.getTravelTime(path[j - 1], path[j]) + w_j;
+           start_of_service_times[j]+=w_j;
 
             // STEP 7 (c):
-            for (int i = j + 1; i < path.size(); i++) computeStartOfServiceTime(i);
+           for (int i = j + 1; i < path.size(); i++) computeStartOfServiceTime(i);
         }
     }
 
@@ -159,7 +188,6 @@ void Route::updateMetrics(bool debug) {
         if (adaptiveCharging) computeChargingTime(i);
         if (path[i]->isOrigin()) requests.push_back(inst.getRequest(path[i]));
     }
- 
     BasicScheduling();
     LazyScheduling();
     storeNaturalSequences();
@@ -172,14 +200,11 @@ void Route::computeLoad(int i) {
 
 void Route::computeStartOfServiceTime(int i)
 {
-    if (i == 0) start_of_service_times[i] = vehicle->start_time;
-    else {
-        double stay_time = path[i - 1]->service_duration;
-        if (path[i - 1]->isChargingStation())
-            stay_time += inst.getChargingStation(path[i - 1])->getRequiredTime(battery[i - 1], desiredAmount[inst.getChargingStation(path[i - 1])]);
-        start_of_service_times[i] = std::max(path[i]->earliest,
-            start_of_service_times[i - 1] + stay_time + inst.getTravelTime(path[i - 1], path[i]));
-    }
+     double stay_time = path[i - 1]->service_duration;
+     if (path[i - 1]->isChargingStation())
+         stay_time += inst.getChargingStation(path[i - 1])->getRequiredTime(battery[i - 1], desiredAmount[inst.getChargingStation(path[i - 1])]);
+     start_of_service_times[i] = std::max(path[i]->earliest,
+          start_of_service_times[i - 1] + stay_time + inst.getTravelTime(path[i - 1], path[i]));
 }
 
 void Route::deleteRedundantChargingStations()
@@ -189,9 +214,9 @@ void Route::deleteRedundantChargingStations()
         if (node_indices.contains(cs_node)) {
             int index = node_indices[cs_node];
             double charging_time = pair.first->getRequiredTime(battery[index],desiredAmount[pair.first]);
-            if (!charging_time) {
-                removeNode(index);
-                updateMetrics();
+            if (dbl_round(charging_time,0)==0) {
+              removeNode(index);
+              updateMetrics();
             }
         }
     }
@@ -213,60 +238,57 @@ void Route::computeTotalCost(bool debug) {
     travel_distance = excess_ride_time = 0.0;
 
     for (int i = 0; i < n - 1; i++) {
-        
+        travel_distance += inst.getTravelTime(path[i], path[i + 1]);
         if (loads[i] > vehicle->capacity) {
-            travel_distance = DBL_MAX;
             capacityFeasible = false;
-            if (debug) std::cout << "Capacity Infeasible" << std::endl;
-            return;
-        }
-      
-        if (FixedDouble(battery[i], 3) < FixedDouble()) {
-            batteryFeasible = false;
-            travel_distance = DBL_MAX;
             if (debug) {
-                std::cout << "Battery Infeasible: " << FixedDouble(battery[i], 3) << std::endl;
+                std::cout << "Capacity Infeasible" << std::endl;
             }
             return;
         }
-        if (FixedDouble(path[i]->latest, 3) < FixedDouble(start_of_service_times[i], 3) || FixedDouble(path[i]->maximum_travel_time, 3) < FixedDouble(getRideTime(i), 3)) {
-            timeFeasible = false;
-            travel_distance = DBL_MAX;
+      
+        if (dbl_round(battery[i], 3) < 0.000) {
+            batteryFeasible = false;
             if (debug) {
-                std::cout << "Time Window:" << FixedDouble(start_of_service_times[i] - path[i]->latest, 3) << "\n";
+                std::cout << "Battery Infeasible: " << dbl_round(battery[i], 2) << std::endl;
+            }
+            return;
+        }
+        if (dbl_round(start_of_service_times[i] - path[i]->latest, 3)>0.0 || dbl_round(getRideTime(i)-path[i]->maximum_travel_time, 3)>0.0) {
+            timeFeasible = false;
+            if (debug) {
+                std::cout << "Time Window:" << dbl_round(start_of_service_times[i] - path[i]->latest, 3) << "\n";
                 std::cout << "Ride Time:" << getRideTime(i) << "\n";
             }
             return;
         }
         
-        travel_distance += inst.getTravelTime(path[i], path[i + 1]);
-        if (path[i]->isDestination()) {
-            excess_ride_time += getRideTime(i) - inst.getTravelTime(path[i], path[i + 1]);
+        if (path[i]->isOrigin()) {
+            Request* req = inst.getRequest(path[i]);
+            excess_ride_time += getRideTime(i) - inst.getTravelTime(req->origin, req->destination);
         }
         
     }
 
     if (loads.back() > vehicle->capacity) {
         capacityFeasible = false;
-        travel_distance = DBL_MAX;
-        if (debug) std::cout << "Capacity Infeasible" << std::endl;
+        if (debug) {
+            std::cout << "Capacity Infeasible" << std::endl;
+        }
         return;
     }
-    if (FixedDouble(battery.back(), 3) < FixedDouble(vehicle->total_battery * vehicle->battery_return_percentage, 3)) {
+    if (dbl_round(battery.back(), 3) < dbl_round(vehicle->total_battery * vehicle->battery_return_percentage, 3)) {
         batteryFeasible = false;
-        travel_distance = DBL_MAX;
         if (debug) {
-            std::cout << "Return Battery Infeasible: " << FixedDouble(battery.back() - vehicle->total_battery * vehicle->battery_return_percentage, 3) << "\n";
+            std::cout << "Return Battery Infeasible: " << dbl_round(battery.back() - vehicle->total_battery * vehicle->battery_return_percentage, 3) << "\n";
         }
         return;
     }
-    if (FixedDouble(vehicle->end_time, 3) < FixedDouble(start_of_service_times.back(), 3)) {
+    if (dbl_round(vehicle->end_time-start_of_service_times.back(), 3)<0.0) {
         timeFeasible = false;
-        travel_distance = DBL_MAX;
         if (debug) {
-            std::cout << "Time Window:" << FixedDouble(start_of_service_times.back() - vehicle->end_time, 3) << "\n";
+            std::cout << "Time Window:" << dbl_round(start_of_service_times.back() - vehicle->end_time, 3) << "\n";
         }
-        return;
     }
 
 }
@@ -377,6 +399,8 @@ std::pair<size_t, size_t> Route::getRequestPosition(const Request* r) {
 
 CStation* Route::findBestChargingStationAfter(int i) {
     //Find all the reachable stations from the zero-load node
+    std::random_device rd;
+    RandLib randlib(rd());
     Node* zero_load_node = path[i];
     std::vector<CStation*> reachable_stations;
     reachable_stations.reserve(inst.charging_stations.size());
@@ -393,12 +417,12 @@ CStation* Route::findBestChargingStationAfter(int i) {
         CStation* min_s = reachable_stations[0];
         double min_score = inst.dischargeRate*getAddedDistance(inst.nodes[min_s->id - 1], i);
 
-        for (size_t x = 1; x < reachable_stations.size(); x++)
+        for (std::vector<CStation*>::iterator it = reachable_stations.begin(); it!=reachable_stations.end(); ++it)
         {
-            CStation* current_station = reachable_stations[x];
-            double current_score = inst.dischargeRate*getAddedDistance(inst.nodes[current_station->id - 1], i);
+            
+            double current_score = inst.dischargeRate*getAddedDistance(inst.nodes[(*it)->id - 1], i);
             if (min_score > current_score) {
-                min_s = current_station;
+                min_s = *it;
                 min_score = current_score;
             }
         }
@@ -430,6 +454,8 @@ void Route::removeNode(int index){
 void Route::removeRequest(Request* request)
 {
     std::pair < size_t, size_t > indices= getRequestPosition(request);
+    if (path[indices.first]->id != request->origin->id || path[indices.second]->id != request->destination->id)
+        std::cout << "Error in removal." << "\n";
     removeNode(indices.first);
     removeNode(indices.second-1);
 }
@@ -437,7 +463,7 @@ void Route::removeRequest(Request* request)
 bool Route::isInsertionCapacityFeasible(Request* request, int i, int j) const {
     if (j < i || i < 0 || j < 0 || i + 1 >= path.size() || j + 1 >= path.size()) return false;
     else { 
-        for (int x = i; x <= j; x++) {
+        for (size_t x = i; x <= j; x++) {
             if (loads[x] + request->origin->load > vehicle->capacity) return false;
             if (loads[x] && path[x]->isChargingStation()) return false;
         }
@@ -456,9 +482,9 @@ bool Route::isInsertionBatteryFeasible(Request* request, int i, int j,bool incre
             //Spot the important nodes (depots,charging stations) the request lies between.
             int closest_left = 0;
             int closest_right = path.size() - 1;
-            for (auto pair : assigned_cs) {
-                if (pair.second) {
-                    int index = node_indices[inst.nodes[pair.first->id - 1]];
+            for (const auto& [station,isAssigned] : assigned_cs) {
+                if (isAssigned) {
+                    int index = node_indices[inst.nodes[station->id - 1]];
                     if (index <= i && index > closest_left) closest_left = index;
                     if (index > j && index < closest_right) closest_right = index;
                 }
@@ -477,9 +503,9 @@ bool Route::isInsertionBatteryFeasible(Request* request, int i, int j,bool incre
         else {
             double battery_after_insertion;
             double added_battery_consumption = getAddedDistance(request, i, j)*inst.dischargeRate;
-            for (auto pair : assigned_cs) {
-                if (pair.second) {
-                    int index = node_indices[inst.nodes[pair.first->id - 1]];
+            for(const auto& [station, isAssigned] : assigned_cs) {
+                if (isAssigned) {
+                    int index = node_indices[inst.nodes[station->id - 1]];
                     if (index > j) {
                         battery_after_insertion = battery[index] - added_battery_consumption;
                         if (battery_after_insertion < 0.0) return false;
@@ -498,7 +524,7 @@ bool Route::isInsertionTimeFeasible(Request* request, int i, int j)
     //Check if a charging station is located before the request.
     double new_bos_i = start_of_service_times[i];
     int closest = 0;
-    for (const auto [station, assigned] : assigned_cs) {
+    for (const auto& [station, assigned] : assigned_cs) {
         if (assigned) {
             int csIndex = node_indices[inst.nodes[station->id - 1]];
             if (csIndex > closest && csIndex <=i) closest = csIndex;
