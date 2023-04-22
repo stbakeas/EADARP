@@ -16,6 +16,7 @@ std::vector<std::vector<Node*>> PowerSet(Route route,std::vector<size_t> set, in
 {
 	bool* contain = new bool[n] {0};
 	std::vector<std::vector<Node*>> power_set;
+	
 	for (int i = 0; i < n; i++)
 	{
 		std::vector<Node*> subset;
@@ -187,8 +188,6 @@ namespace algorithms {
 					if (inst.isForbiddenArc(s.routes[v].path[i], r->origin)) continue;
 					for (size_t j = i; j < length; ++j)
 					{
-
-						
 					   if (inst.isForbiddenArc(r->destination, s.routes[v].path[j + 1]))
 								continue;
 
@@ -223,10 +222,7 @@ namespace algorithms {
 					zero_load_positions.reserve(s.routes[v].path.size() / 2);
 					for (int i = s.routes[v].path.size() - 2; i>=0; i--)
 					{
-						
-						if (s.routes[v].loads[i] == 0) {
-							zero_load_positions.push_back(i);
-						}
+						if (s.routes[v].loads[i] == 0) zero_load_positions.push_back(i);
 					}
 					std::vector<std::vector<Node*>> power_set = PowerSet(s.routes[v],zero_load_positions,std::min(zero_load_positions.size(),inst.charging_stations.size()));
 					for (std::vector<Node*> subset : power_set) {
@@ -235,7 +231,8 @@ namespace algorithms {
 							int node_index = s.routes[v].node_indices[zero_load_node];
 							CStation* min_s = 
 								s.routes[v].findBestChargingStationAfter(node_index,s.stationVisits);
-							if (min_s != nullptr) {
+							if (min_s != nullptr && 
+		                        s.routes[v].getAddedDistance(inst.nodes[min_s->id - 1], node_index) <= s.routes[v].FTS[node_index + 1]) {
 								Node* cs_node = inst.nodes[min_s->id - 1];
 								s.routes[v].insertNode(cs_node, node_index + 1);
 								s.routes[v].updateMetrics();
@@ -265,10 +262,6 @@ namespace algorithms {
 										if (s.routes[v].isInsertionCapacityFeasible(r, i, j))
 										{
 											capset.emplace_back(v, i, j,added_stations);
-											if (s.routes[v].isInsertionBatteryFeasible(r, i, j, false)) {
-												strong_batset.emplace_back(v, i, j,added_stations);
-												positionFound = true;
-											}
 											if (s.routes[v].isInsertionBatteryFeasible(r, i, j, true)) {
 												weak_batset.emplace_back(v, i, j,added_stations);
 												positionFound = true;

@@ -28,7 +28,7 @@ typedef std::array<double, 3> Configuration;
 * 2. Write the output(Best Cost, Average Cost, Average Iterations Until Best Was Found, Average Running Time)
 *    for each instance in a file.
 */
-void CordeauExperiment(int numberOfRuns) {
+void ParraghExperiment(int numberOfRuns) {
 	const fs::path pathToShow("Cordeau-EADARP");
 	ofstream cordeauFile("Experiment.txt");
 	for (const auto& entry : fs::directory_iterator(pathToShow)) {
@@ -66,6 +66,6 @@ void CordeauExperiment(int numberOfRuns) {
 }
 
 int main(){
-	CordeauExperiment(1);
+	ParraghExperiment(1);
 	return EXIT_SUCCESS;
 }
