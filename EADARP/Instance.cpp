@@ -392,6 +392,9 @@ void Instance::Preprocessing() {
     }
    
     //Arc Elimination
+    avgDistance = 0.0;
+    int count = 0;
+
     int n = inst.requests.size();
     for (int i = 0; i < distanceMatrix.size(); i++) {
         for (int j = 0; j < distanceMatrix.size(); j++) {
@@ -411,11 +414,16 @@ void Instance::Preprocessing() {
                     distanceMatrix[i][j] = DBL_MAX;
                     distanceMatrix[j][n + i] = DBL_MAX;
                 }
+                if (distanceMatrix[i][j] != DBL_MAX) {
+                    avgDistance += distanceMatrix[i][j];
+                    count++;
+                }
 
             } 
 
         }
     }
+    avgDistance /= count;
     
     //Incompatible request-vehicle pairs
     for (Request* r : inst.requests){

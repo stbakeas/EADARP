@@ -14,7 +14,7 @@ Solution::Solution(){
 
 double Solution::objectiveValue() const
 {
-    return 0.75*total_travel_distance+0.25*total_excess_ride_time;
+    return 0.75*total_travel_distance+0.25*total_excess_ride_time+rejected.size()*(inst.avgDistance*inst.requests.size());
 }
 
 void Solution::addRoute(Route r)

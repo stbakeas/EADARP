@@ -118,6 +118,8 @@ namespace algorithms
 		//Empty
 		Solution LeastOptionsInsertion(Solution s, std::vector<double> arguments);
 
+		Solution SortedRandomizedInsertion(Solution s, std::vector<double> arguments);
+
 
 		/*
 		* Regret Degree = 0

@@ -61,19 +61,18 @@ namespace algorithms {
 
 	Run ALNS(Solution initial,unsigned int max_iterations,int max_seconds,double temperature_control, double removalRandomness, double removalPercentage,int segment_size,double reaction_factor)
 	{
-		double temperature(DBL_MAX);
-		double cooling_rate(1.0);
+		double temperature(DBL_MAX), cooling_rate(1.0);
 		std::array<double, 2> weightSum;
 		std::array<std::vector<Statistics>,2> stats;
-		
 
 		stats[0].emplace_back(ZeroSplitRemoval, 0.25, 0, 0);
 		stats[0].emplace_back(WorstRemoval, 0.25, 0, 0);
 		stats[0].emplace_back(RandomRemoval, 0.25, 0, 0);
 		stats[0].emplace_back(SimilarityRemoval, 0.25, 0, 0);
 		weightSum[0] = 1.0;
-		stats[1].emplace_back(RegretInsertion, 0.5, 0, 0);
-		stats[1].emplace_back(GreedyInsertion, 0.5, 0, 0);
+		stats[1].emplace_back(RegretInsertion, 0.33, 0, 0);
+		stats[1].emplace_back(GreedyInsertion, 0.34, 0, 0);
+		stats[1].emplace_back(RandomInsertion, 0.33, 0, 0);
 		weightSum[1] = 1.0;
 			
 		bool noFeasibleFound = true;
@@ -96,69 +95,32 @@ namespace algorithms {
 				route.deleteRedundantChargingStations();
 				s.addRoute(route);
 			}
-			s = stats[1][insertionIndex].heuristic(s, {2.0,removalRandomness});		
+			s = stats[1][insertionIndex].heuristic(s, {(double)randlib.randint(2,std::min(4,int(inst.vehicles.size()))),removalRandomness});		
 
 			stats[0][removalIndex].attempts++;
 			stats[1][insertionIndex].attempts++;
 
-
-			if (s.rejected.size() < incumbent.rejected.size()) {
+			if (dbl_round(s.objectiveValue(), 5) < dbl_round(incumbent.objectiveValue(), 5)) {
 				incumbent = s;
 				stats[0][removalIndex].score += 10;
 				stats[1][insertionIndex].score += 10;
-				
+			}
+			else if (SimulatedAnnealingAcceptanceCriterion(s, incumbent, temperature)) {
+				incumbent = s;
+				stats[0][removalIndex].score += 5;
+				stats[1][insertionIndex].score += 5;
+			}
 
-				if (s.rejected.size() < run.best.rejected.size()) {
-					incumbent = run.best = s;
-					stats[0][removalIndex].score += 10;
-					stats[1][insertionIndex].score += 10;
+			
+			if (dbl_round(s.objectiveValue(), 5) < dbl_round(run.best.objectiveValue(), 5)) {
+					run.best = incumbent = s;
+					stats[0][removalIndex].score += 20;
+					stats[1][insertionIndex].score += 20;
 					run.best_iter = iter;
-					std::cout << "New best Found: " << s.objectiveValue() << "," << s.rejected.size() << "\n";
-					no_imp_iter=0;
-				}
-				else if (s.rejected.size() == run.best.rejected.size() && dbl_round(s.objectiveValue(), 5) < dbl_round((1.0 + intra_percentage) * run.best.objectiveValue(), 5)) {
-					exchangeOrigin(s, NeighborChoice::BEST);
-					exchangeDestination(s, NeighborChoice::BEST);
-					exchangeConsecutive(s, NeighborChoice::BEST);
-					moveStation(s, NeighborChoice::BEST);
-					if (dbl_round(s.objectiveValue(),5) < dbl_round(run.best.objectiveValue(), 5)) {
-						incumbent = run.best = s;
-						stats[0][removalIndex].score += 10;
-						stats[1][insertionIndex].score += 10;
-						run.best_iter = iter;
-						std::cout << "New best Found: " << s.objectiveValue() << "\n";
-						no_imp_iter = 0;
-					}
-				}
-
+					std::cout << "New best Found: " << s.objectiveValue() << "\n";
+					no_imp_iter = 0;
 			}
-			else if (s.rejected.size() == incumbent.rejected.size()) {
-				if (dbl_round(s.objectiveValue(), 5) < dbl_round(incumbent.objectiveValue(), 5)) {
-					incumbent = s;
-					stats[0][removalIndex].score += 10;
-					stats[1][insertionIndex].score += 10;
-				}
-				else if (SimulatedAnnealingAcceptanceCriterion(s, incumbent, temperature)) {
-					incumbent = s;
-					stats[0][removalIndex].score += 5;
-					stats[1][insertionIndex].score += 5;
-				}
-
-				if (s.rejected.size() == run.best.rejected.size() && dbl_round(s.objectiveValue(), 5) < dbl_round((1.0 + intra_percentage) * run.best.objectiveValue(), 5)) {
-					exchangeOrigin(s, NeighborChoice::BEST);
-					exchangeDestination(s, NeighborChoice::BEST);
-					exchangeConsecutive(s, NeighborChoice::BEST);
-					moveStation(s, NeighborChoice::BEST);
-					if (dbl_round(s.objectiveValue(),5) < dbl_round(run.best.objectiveValue(),5)) {
-						incumbent = run.best = s;
-						stats[0][removalIndex].score += 20;
-						stats[1][insertionIndex].score += 20;
-						run.best_iter = iter;
-						std::cout << "New best Found: " << s.objectiveValue() << "\n";
-						no_imp_iter=0;
-					}
-				}
-			}
+			
 
 			if (noFeasibleFound && run.best.rejected.empty()) {
 				noFeasibleFound = false;
@@ -226,16 +188,16 @@ namespace algorithms {
 					for (size_t j = i; j < length; ++j)
 					{
 
-						if (i == j) {
-							if (inst.isForbiddenArc(r->destination, s.routes[v].path[i + 1]))
+						
+					   if (inst.isForbiddenArc(r->destination, s.routes[v].path[j + 1]))
 								continue;
-						}
-						else {
+
+						if( i != j ) 
+						{
 							if (inst.isForbiddenArc(r->origin, s.routes[v].path[i + 1])) break;
 							if (inst.isForbiddenArc(r->destination, s.routes[v].path[j + 1]) ||
 								inst.isForbiddenArc(s.routes[v].path[j], r->destination))
 								continue;
-
 						}
 						if (s.routes[v].isInsertionTimeFeasible(r, i, j)) {
 							if (s.routes[v].isInsertionCapacityFeasible(r, i, j))
@@ -1262,6 +1224,49 @@ namespace algorithms {
 			return s;
 		}
 
+		Solution SortedRandomizedInsertion(Solution s, std::vector<double> arguments)
+		{
+			std::random_device rd;
+			RandLib randlib(rd());
+			for (Request* req : s.rejected) s.removed.push_back({ req,nullptr });
+			s.rejected.clear();
+			std::sort(s.removed.begin(), s.removed.end(), [](std::pair<Request*,EAV*> pair1, std::pair<Request*, EAV*> pair2) {
+				return pair1.first->origin->earliest < pair2.first->origin->earliest;
+			});
+			for (int i = 0; i < s.removed.size(); i++) {
+				Request* request = s.removed[i].first;
+				std::vector<Position> possibleMoves = InsertionNeighborhood(request, s, inst.vehicles, true);
+				std::vector<Position> feasibleMoves;
+				for (Position move : possibleMoves) {
+					double cost = s.getInsertionCost(request, move);
+					if (cost != DBL_MAX) feasibleMoves.push_back(move);
+				}
+				if (feasibleMoves.size()) {
+					Position bestMove = feasibleMoves[floor(pow(randlib.unifrnd(0, 0.99), arguments[1]) * feasibleMoves.size())];
+					Route new_route = s.routes[bestMove.vehicle];
+					if (bestMove.cs_pos.size()) {
+						for (const auto& [station, node] : bestMove.cs_pos) {
+							int index = new_route.node_indices[node] + 1;
+							std::for_each(new_route.path.begin() + index, new_route.path.end(), [&new_route](Node* node)
+								{new_route.node_indices[node]++; }
+							);
+							new_route.insertNode(inst.nodes[station->id - 1], index);
+							new_route.node_indices[inst.nodes[station->id - 1]] = index;
+							inst.operationsSaved++;
+						}
+					}
+					new_route.insertRequest(request, bestMove.origin_pos + 1, bestMove.dest_pos + 1);
+					new_route.updateMetrics(true);
+					if (!new_route.isFeasible()) std::cout << "Infeasible Insertion?\n";
+					s.addRoute(new_route);
+					s.removed.erase(s.removed.begin() + i);
+				}
+			}
+			rejectedReinsertion(s);
+			s.removed.clear();
+			return s;
+		}
+			
 		Solution RandomInsertion(Solution s, std::vector<double> arguments) {
 			std::random_device rd;
 			RandLib randlib(rd());

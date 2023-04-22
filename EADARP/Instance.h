@@ -52,6 +52,7 @@ public:
     int maximumCapacity = 0.0;
     double returnedBatteryPercentage;
     double maximumBattery;
+    double avgDistance;
 
     ~Instance();
     Instance(const Instance&) = delete;
