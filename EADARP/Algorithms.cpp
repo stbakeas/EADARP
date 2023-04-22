@@ -923,7 +923,7 @@ namespace algorithms {
 					printf("Infeasible Removal? \n");
 				}
 				current_solution.addRoute(route);
-				current_solution.removed.push_back({ req,vehicle });
+				current_solution.removed.push_back(req);
 				requestPosition.erase(requestPosition.begin() + index);
 			}
 
@@ -951,7 +951,7 @@ namespace algorithms {
 						printf("Infeasible Removal? \n");
 					}
 					s.addRoute(route);
-					s.removed.emplace_back(req, random_vehicle);
+					s.removed.push_back(req);
 					i++;
 				}
 			}
@@ -973,9 +973,9 @@ namespace algorithms {
 					double cost(0.0);
 					for (int i = pair.first; i < pair.second; i++) {
 						if (s.routes[v].path[i]->isOrigin()) removedRequests.push_back(inst.getRequest(s.routes[v].path[i]));
-						cost+=inst.getTravelTime(s.routes[v].path[i], s.routes[v].path[i + 1]);
+						cost+=inst.getTravelTime(s.routes[v].path[i], s.routes[v].path[i + 1])+s.routes[v].getWaitingTime(i);
 					}
-					cost/= pair.second - pair.first;
+					//cost/= pair.second - pair.first;
 					std::pair<EAV*, double> locationAndCost(v, cost);
 					zssPosition.emplace_back(removedRequests, locationAndCost);
 				}
@@ -994,16 +994,11 @@ namespace algorithms {
 				
 				Route route = s.routes[vehicle];
 				for (Request* req : zssPosition[index].first) {
-					Route before_route = route;
-					route.removeRequest(req);
-					route.updateMetrics(true);
-					if (!route.isFeasible()) {
-						std::cout << before_route.isFeasible() << "\n";
-						printf("Infeasible Removal? \n");
-					}
-					s.removed.push_back({ req,vehicle });
+					s.removed.push_back(req);
 					i++;
 				}
+
+				route.updateMetrics(true);
 				s.addRoute(route);
 				zssPosition.erase(zssPosition.begin() + index);
 			}
@@ -1021,7 +1016,7 @@ namespace algorithms {
 			while (i < removal_number) {
 				EAV* vehicle = inst.vehicles[randlib.randint(0, inst.vehicles.size()-1)];
 				if (s.routes[vehicle].hasNoRequests()) continue;
-				for (Request* req : s.routes[vehicle].requests) s.removed.emplace_back(req,vehicle);
+				for (Request* req : s.routes[vehicle].requests) s.removed.push_back(req);
 				i += s.routes[vehicle].requests.size();
 
 				Route route(vehicle);
@@ -1054,7 +1049,7 @@ namespace algorithms {
 				Request* removed_req;
 				if (s.rejected.empty()) {
 					int randomIndex = randlib.randint(0, assignments.size() - 1);
-					s.removed.push_back(assignments[randomIndex]);
+					s.removed.push_back(assignments[randomIndex].first);
 					Route before_route;
 					Route random_route = before_route = s.routes[assignments[randomIndex].second];
 					removed_req = assignments[randomIndex].first;
@@ -1066,6 +1061,7 @@ namespace algorithms {
 						std::cout << "Infeasible Similarity Removal?\n"; 
 					}
 					s.addRoute(random_route);
+					removal_number--;
 				}
 				else removed_req = s.rejected[randlib.randint(0, s.rejected.size() - 1)];
 				
@@ -1074,15 +1070,19 @@ namespace algorithms {
 					return inst.similarity[removed_req->origin->id - 1][pair1.first->origin->id - 1] <
 						inst.similarity[removed_req->origin->id - 1][pair2.first->origin->id - 1];
 				});
-				for (size_t i = 0; i < removal_number-1; i++) {
-					Route route = s.routes[assignments[i].second];
-					route.removeRequest(assignments[i].first);
+				size_t i = 0;
+				while (i < removal_number) {
+					int index = floor(pow(randlib.unifrnd(0, 0.99), arguments[1]) * assignments.size());
+					Route route = s.routes[assignments[index].second];
+					route.removeRequest(assignments[index].first);
 					route.updateMetrics(true);
 					if (!route.isFeasible()) {
 						printf("Infeasible Removal? \n");
 					}
 					s.addRoute(route);
-					s.removed.push_back(assignments[i]);
+					s.removed.push_back(assignments[index].first);
+					assignments.erase(assignments.begin() + index);
+					i++;
 				}
 			}
 			return s;
@@ -1097,18 +1097,18 @@ namespace algorithms {
 		{
 			std::random_device rd;
 			RandLib randlib(rd());
-			for (Request* req : s.rejected) s.removed.push_back({ req,nullptr });
+			for (Request* req : s.rejected) s.removed.push_back(req);
 			s.rejected.clear();
 			while (!s.removed.empty()) {
 				Position bestMove;
 				double bestCost(DBL_MAX) ;
-				Assignment min_pair;
-				for (Assignment pair : s.removed) {
-					std::vector<Position> possibleMoves = InsertionNeighborhood(pair.first, s, inst.vehicles,true);
+				Request* minUser=nullptr;
+				for (Request* request : s.removed) {
+					std::vector<Position> possibleMoves = InsertionNeighborhood(request, s, inst.vehicles,true);
 					Position min_pos;
 					double min_cost(DBL_MAX);
 					for (Position move : possibleMoves) {
-						double cost = s.getInsertionCost(pair.first, move);
+						double cost = s.getInsertionCost(request, move);
 						if (cost < min_cost) {
 							min_cost = cost;
 							min_pos = move;
@@ -1118,7 +1118,7 @@ namespace algorithms {
 						if (min_cost < bestCost) {
 							bestMove = min_pos;
 							bestCost = min_cost;
-							min_pair = pair;
+							minUser = request;
 						}
 					}
 				}
@@ -1141,11 +1141,11 @@ namespace algorithms {
 							inst.operationsSaved++;
 						}
 					}
-					new_route.insertRequest(min_pair.first, bestMove.origin_pos + 1, bestMove.dest_pos + 1);
+					new_route.insertRequest(minUser, bestMove.origin_pos + 1, bestMove.dest_pos + 1);
 					new_route.updateMetrics(true);
 					if (!new_route.isFeasible()) std::cout << "Infeasible Insertion?\n";
 					s.addRoute(new_route);
-					s.removed.erase(std::remove(s.removed.begin(), s.removed.end(), min_pair),s.removed.end());
+					s.removed.erase(std::remove(s.removed.begin(), s.removed.end(), minUser),s.removed.end());
 				}
 			}
 			return s;
@@ -1155,18 +1155,18 @@ namespace algorithms {
 		{
 			std::random_device rd;
 			RandLib randlib(rd());
-			for (Request* req : s.rejected) s.removed.push_back({ req,nullptr });
+			for (Request* req : s.rejected) s.removed.push_back(req);
 			s.rejected.clear();
 			while (!s.removed.empty()) {
 				std::vector<Position> leastMoves;
 				size_t min_size = SIZE_MAX;
-				Assignment min_pair;
-				for (Assignment pair : s.removed) {
-					std::vector<Position> possibleMoves = InsertionNeighborhood(pair.first, s, inst.vehicles,true);
+				Request* minUser;
+				for (Request* request : s.removed) {
+					std::vector<Position> possibleMoves = InsertionNeighborhood(request, s, inst.vehicles,true);
 					std::vector<Position> feasibleMoves;
 					feasibleMoves.reserve(possibleMoves.size());
 					for (size_t i = 0; i < possibleMoves.size(); i++) {
-						possibleMoves[i].cost = s.getInsertionCost(pair.first, possibleMoves[i]);
+						possibleMoves[i].cost = s.getInsertionCost(request, possibleMoves[i]);
 						if (possibleMoves[i].cost != DBL_MAX) feasibleMoves.push_back(possibleMoves[i]);
 					}
 					if (feasibleMoves.empty()) continue;
@@ -1177,12 +1177,12 @@ namespace algorithms {
 						if (feasibleMoves.size() < min_size) {
 							leastMoves = feasibleMoves; 
 							min_size = feasibleMoves.size();
-							min_pair = pair;
+							minUser = request;
 						}
 						else if (feasibleMoves.size()==min_size) {
 							if (feasibleMoves.front().cost < leastMoves.front().cost) {
 								leastMoves = feasibleMoves;
-								min_pair = pair;
+								minUser = request;
 							}
 							
 						}
@@ -1206,11 +1206,11 @@ namespace algorithms {
 							inst.operationsSaved++;
 						}
 					}
-					new_route.insertRequest(min_pair.first, bestMove.origin_pos + 1, bestMove.dest_pos + 1);
+					new_route.insertRequest(minUser, bestMove.origin_pos + 1, bestMove.dest_pos + 1);
 					new_route.updateMetrics(true);
 					if (!new_route.isFeasible()) std::cout << "Infeasible Insertion?\n";
 					s.addRoute(new_route);
-					s.removed.erase(std::remove(s.removed.begin(), s.removed.end(), min_pair), s.removed.end());
+					s.removed.erase(std::remove(s.removed.begin(), s.removed.end(), minUser), s.removed.end());
 				}
 
 			}
@@ -1221,13 +1221,13 @@ namespace algorithms {
 		{
 			std::random_device rd;
 			RandLib randlib(rd());
-			for (Request* req : s.rejected) s.removed.push_back({ req,nullptr });
+			for (Request* req : s.rejected) s.removed.push_back(req);
 			s.rejected.clear();
-			std::sort(s.removed.begin(), s.removed.end(), [](std::pair<Request*,EAV*> pair1, std::pair<Request*, EAV*> pair2) {
-				return pair1.first->origin->earliest < pair2.first->origin->earliest;
+			std::sort(s.removed.begin(), s.removed.end(), [](Request* r1, Request* r2) {
+				return r1->origin->earliest < r2->origin->earliest;
 			});
 			for (int i = 0; i < s.removed.size(); i++) {
-				Request* request = s.removed[i].first;
+				Request* request = s.removed[i];
 				std::vector<Position> possibleMoves = InsertionNeighborhood(request, s, inst.vehicles, true);
 				std::vector<Position> feasibleMoves;
 				for (Position move : possibleMoves) {
@@ -1263,11 +1263,11 @@ namespace algorithms {
 		Solution RandomInsertion(Solution s, std::vector<double> arguments) {
 			std::random_device rd;
 			RandLib randlib(rd());
-			for (Request* req : s.rejected) s.removed.push_back({ req,nullptr });
+			for (Request* req : s.rejected) s.removed.push_back(req);
 			s.rejected.clear();
 			std::shuffle(s.removed.begin(), s.removed.end(), rd);
 			for (int i = 0; i < s.removed.size(); i++) {
-				Request* request = s.removed[i].first;
+				Request* request = s.removed[i];
 				std::vector<Position> possibleMoves = InsertionNeighborhood(request, s, inst.vehicles, true);
 				std::vector<Position> feasibleMoves;
 				for (Position move : possibleMoves) {
@@ -1305,19 +1305,19 @@ namespace algorithms {
 			std::random_device rd;
 			RandLib randlib(rd());
 
-			for (Request* req : s.rejected) s.removed.push_back({ req,nullptr });
+			for (Request* req : s.rejected) s.removed.push_back(req);
 			s.rejected.clear();
 			while (!s.removed.empty()) {
 				Position bestMove;
 				bestMove.cost = DBL_MAX;
 				double max_regret = -DBL_MAX;
-				Assignment min_pair;
-				for (Assignment pair : s.removed) {
-					std::vector<Position> possibleMoves = InsertionNeighborhood(pair.first, s, inst.vehicles,true);
+				Request* minUser=nullptr;
+				for (Request* request : s.removed) {
+					std::vector<Position> possibleMoves = InsertionNeighborhood(request, s, inst.vehicles,true);
 					std::vector<Position> feasibleMoves;
 					feasibleMoves.reserve(possibleMoves.size());
 					for (size_t i = 0; i < possibleMoves.size(); i++) {
-						possibleMoves[i].cost = s.getInsertionCost(pair.first, possibleMoves[i]);
+						possibleMoves[i].cost = s.getInsertionCost(request, possibleMoves[i]);
 						if (possibleMoves[i].cost != DBL_MAX) feasibleMoves.push_back(possibleMoves[i]);
 					}
 					if (feasibleMoves.empty()) continue;
@@ -1350,12 +1350,12 @@ namespace algorithms {
 						if (max_regret < regret) {
 							bestMove = RouteBestMove.front().second;
 							max_regret = regret;
-							min_pair = pair;
+							minUser = request;
 						}
 						else if (regret == max_regret) {
 							if (RouteBestMove.front().second.cost < bestMove.cost) {
 								bestMove = RouteBestMove.front().second;
-								min_pair = pair;
+								minUser = request;
 							}
 						}
 					}
@@ -1377,11 +1377,11 @@ namespace algorithms {
 							inst.operationsSaved++;
 						}
 					}
-					new_route.insertRequest(min_pair.first, bestMove.origin_pos + 1, bestMove.dest_pos + 1);
+					new_route.insertRequest(minUser, bestMove.origin_pos + 1, bestMove.dest_pos + 1);
 					new_route.updateMetrics(true);
 					if (!new_route.isFeasible()) std::cout << "Infeasible Insertion?\n";
 					s.addRoute(new_route);
-					s.removed.erase(std::remove(s.removed.begin(), s.removed.end(), min_pair), s.removed.end());
+					s.removed.erase(std::remove(s.removed.begin(), s.removed.end(), minUser), s.removed.end());
 				}
 
 			}
@@ -1392,7 +1392,7 @@ namespace algorithms {
 
 		void rejectedReinsertion(Solution& s)
 		{
-			for (Assignment pair : s.removed) {
+			for (Request* removedRequest : s.removed) {
 				bool insertionFailed = true;
 				// Request ID, Vehicle It Is Assigned To
 				std::unordered_map<int, EAV*> assignment;
@@ -1407,16 +1407,16 @@ namespace algorithms {
 				for (const auto& [reqId, vehicle] : assignment)
 					assigned.push_back(inst.getRequest(inst.nodes[reqId - 1]));
 
-				std::sort(assigned.begin(), assigned.end(), [pair](Request* a, Request* b) {
-					return inst.similarity[pair.first->origin->id - 1][a->origin->id - 1] <
-						inst.similarity[pair.first->origin->id - 1][b->origin->id - 1];
+				std::sort(assigned.begin(), assigned.end(), [removedRequest](Request* a, Request* b) {
+					return inst.similarity[removedRequest->origin->id - 1][a->origin->id - 1] <
+						inst.similarity[removedRequest->origin->id - 1][b->origin->id - 1];
 					});
 
 				for (Request* req : assigned) {
 					Route route = s.routes[assignment[req->origin->id]];
 					std::pair<size_t, size_t> position = route.getRequestPosition(req);
-					route.path[position.first] = pair.first->origin;
-					route.path[position.second] = pair.first->destination;
+					route.path[position.first] = removedRequest->origin;
+					route.path[position.second] = removedRequest->destination;
 					inst.operationsSaved++;
 					route.updateMetrics();
 					if (route.isFeasible()) {
@@ -1455,7 +1455,7 @@ namespace algorithms {
 						}
 					}
 				}
-				if (insertionFailed) s.rejected.push_back(pair.first);
+				if (insertionFailed) s.rejected.push_back(removedRequest);
 			}
 		}
 
