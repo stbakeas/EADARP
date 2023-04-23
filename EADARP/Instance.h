@@ -61,7 +61,7 @@ public:
 
     
     void loadMalheiros(const std::string instance_file_name, int seed);
-    void loadCordeau(const std::string instance_file_name);
+    void loadInstance(const std::string instance_file_name,float gamma);
 
     //Get the start depot associated with a vehicle
     Node* getDepot(EAV* vehicle,std::string start_or_end);

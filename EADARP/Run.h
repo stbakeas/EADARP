@@ -9,8 +9,6 @@ public:
 	Solution best;
 	unsigned int best_iter;
 	double elapsed_seconds;
-	std::vector<unsigned int> seeds;
-	std::vector<std::pair<double, double>> convergence;
 	Run() {};
 	~Run() {};
 };

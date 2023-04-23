@@ -172,7 +172,7 @@ void Instance::loadMalheiros(const std::string instance_file_name, int seed) {
     Preprocessing();
 }
 
-void Instance::loadCordeau(const std::string instance_file_name) {
+void Instance::loadInstance(const std::string instance_file_name,float gamma) {
    
     std::ifstream file(instance_file_name);
 
@@ -276,10 +276,8 @@ void Instance::loadCordeau(const std::string instance_file_name) {
         vehicles[i]->acquisition_cost = 0.0;
     }
 
-    double return_percentage;
     for (int i = 0; i < vehicles_num; i++) {
-        file >> return_percentage;
-        vehicles[i]->battery_return_percentage = return_percentage;
+        vehicles[i]->battery_return_percentage = gamma;
     }
 
     double recharge_rate;

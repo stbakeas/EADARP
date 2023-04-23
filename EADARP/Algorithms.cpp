@@ -975,7 +975,7 @@ namespace algorithms {
 						if (s.routes[v].path[i]->isOrigin()) removedRequests.push_back(inst.getRequest(s.routes[v].path[i]));
 						cost+=inst.getTravelTime(s.routes[v].path[i], s.routes[v].path[i + 1])+s.routes[v].getWaitingTime(i);
 					}
-					//cost/= pair.second - pair.first;
+					
 					std::pair<EAV*, double> locationAndCost(v, cost);
 					zssPosition.emplace_back(removedRequests, locationAndCost);
 				}
@@ -994,6 +994,11 @@ namespace algorithms {
 				
 				Route route = s.routes[vehicle];
 				for (Request* req : zssPosition[index].first) {
+					route.removeRequest(req);
+					route.node_indices.clear();
+					for (int i = 0; i < route.path.size(); i++) {
+						route.node_indices[route.path[i]] = i;
+					}
 					s.removed.push_back(req);
 					i++;
 				}
