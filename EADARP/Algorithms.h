@@ -11,7 +11,7 @@ namespace algorithms
 
 	typedef std::pair<Request*, EAV*> Assignment;
 
-	typedef Solution(*Heuristic)(Solution, std::vector<double>);
+	typedef Solution(*Heuristic)(Solution, const std::vector<double>&);
 
 	struct Statistics {
 		Heuristic heuristic;
@@ -28,9 +28,9 @@ namespace algorithms
 
 	};
 
-	int RouletteWheelSelection(std::vector<Statistics> stats, double weightSum);
+	int RouletteWheelSelection(const std::vector<Statistics>& stats, double weightSum);
 
-	Run ALNS(Solution initial, unsigned int max_iterations, int max_seconds, double temperature_control,
+	Run ALNS(const Solution& initial, unsigned int max_iterations, int max_seconds, double temperature_control,
 		double removalRandomness,double removalPercentage, int segment_size,double reaction_factor);
 
 	bool SimulatedAnnealingAcceptanceCriterion(const Solution& candidate,const Solution& incumbent, double current_temperature);
@@ -38,14 +38,9 @@ namespace algorithms
     namespace details
     {
 
-		std::vector<Position> InsertionNeighborhood(Request* r, Solution s, std::vector<EAV*> available_vehicles, bool includeCS = false);
+		std::vector<Position> InsertionNeighborhood(Request* r, Solution s,const std::vector<EAV*>& available_vehicles, bool includeCS = false);
 
 		double DistanceBetweenUsers(Request* r1,Request* r2);
-
-		/*
-		* Inspired by list heuristic proposed by Atahran et. al(2014)
-		*/
-		Solution H1(int iter);
 
         /**
          * Randomly selects a request and inserts it at its best position.
@@ -95,39 +90,39 @@ namespace algorithms
 		* Removal Ratio = 0 
 		* Randomness = 1
 		*/
-		Solution WorstRemoval(Solution s, std::vector<double> arguments);
+		Solution WorstRemoval(Solution s, const std::vector<double>& arguments);
 
 		//Removal Ratio = 0;
-		Solution RandomRemoval(Solution s, std::vector<double> arguments);
+		Solution RandomRemoval(Solution s, const std::vector<double>& arguments);
 
 		//Removal Ratio = 0;
-		Solution SimilarityRemoval(Solution s, std::vector<double> arguments);
+		Solution SimilarityRemoval(Solution s, const std::vector<double>& arguments);
 
 		/*
 		* Removal Ratio = 0
 		* Randomness = 1
 		*/
-		Solution ZeroSplitRemoval(Solution s, std::vector<double> arguments);
+		Solution ZeroSplitRemoval(Solution s, const std::vector<double>& arguments);
 
 		// Removal Ratio = 0
-		Solution EntireRouteRemoval(Solution s, std::vector<double> arguments);
+		Solution EntireRouteRemoval(Solution s, const std::vector<double>& arguments);
 
 		//Empty
-		Solution GreedyInsertion(Solution s, std::vector<double> arguments);
+		Solution GreedyInsertion(Solution s, const std::vector<double>& arguments);
 
 		//Empty
-		Solution LeastOptionsInsertion(Solution s, std::vector<double> arguments);
+		Solution LeastOptionsInsertion(Solution s, const std::vector<double>& arguments);
 
-		Solution SortedRandomizedInsertion(Solution s, std::vector<double> arguments);
+		Solution SortedRandomizedInsertion(Solution s, const std::vector<double>& arguments);
 
 
 		/*
 		* Regret Degree = 0
 		*/
-		Solution RegretInsertion(Solution s, std::vector<double> arguments);
+		Solution RegretInsertion(Solution s, const std::vector<double>& arguments);
 
 
-		Solution RandomInsertion(Solution s, std::vector<double> arguments);
+		Solution RandomInsertion(Solution s, const std::vector<double>& arguments);
 
 		/*
 		Proposed by Ying Luo and Paul Schonfeld in 2007

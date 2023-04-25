@@ -60,8 +60,10 @@ public:
     static Instance& getUnique();
 
     
-    void loadMalheiros(const std::string instance_file_name, int seed);
+    void loadMalheiros(const std::string instance_file_name,float gamma, int seed);
     void loadInstance(const std::string instance_file_name,float gamma);
+    void RandomGenerator(int request_num, int vehicles_num, int stations_num, double max_latitude,
+        double max_longitude, double planning_horizon, int seed, float returnBatteryPercentage);
 
     //Get the start depot associated with a vehicle
     Node* getDepot(EAV* vehicle,std::string start_or_end);
