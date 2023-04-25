@@ -22,6 +22,7 @@ public:
 	EAV* vehicle;
 	std::vector<Node*> path;
 	std::vector<double> start_of_service_times;
+	std::vector<double> waiting_times;
 	std::unordered_map<CStation*, double> desiredAmount;
 	std::vector<int> loads;
 	//Version proposed by Savelsbergh (1995) for the PDPTW

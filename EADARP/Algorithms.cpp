@@ -79,12 +79,13 @@ namespace algorithms {
 		double intra_percentage(0.05);
 		std::random_device rd;
 		RandLib randlib(rd());
+		std::vector<double> removalArguments = { removalPercentage,removalRandomness };
+		std::vector<double> insertionArguments;
+		for (int i = 2; i <= inst.vehicles.size(); i++) insertionArguments.push_back(double(i));
 		Run run;
 		auto start = std::chrono::steady_clock::now();
 		Solution incumbent=run.best = run.init = initial;
 		unsigned int iter = 1, no_imp_iter=0;
-		std::vector<double> removalArguments = { removalPercentage,removalRandomness };
-		
 		Solution s;
 		while (iter <= max_iterations) {
 			int removalIndex = RouletteWheelSelection(stats[0],weightSum[0]);
@@ -96,7 +97,7 @@ namespace algorithms {
 				route.deleteRedundantChargingStations();
 				s.addRoute(route);
 			}
-			s = stats[1][insertionIndex].heuristic(s, {(double)randlib.randint(2,std::min(4,int(inst.vehicles.size()))),removalRandomness});		
+			s = stats[1][insertionIndex].heuristic(s, insertionArguments);		
 
 			stats[0][removalIndex].attempts++;
 			stats[1][insertionIndex].attempts++;
@@ -153,8 +154,7 @@ namespace algorithms {
 				}
 			}
 			
-			double elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
-			run.elapsed_seconds = elapsed / 1000.0;
+			run.elapsed_seconds = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count() / 1000.0;
 			if (run.elapsed_seconds > max_seconds) break;
 		}
 		printf("Elapsed time: %f\n", run.elapsed_seconds);
@@ -872,18 +872,12 @@ namespace algorithms {
 			);
 			for (size_t i = 0; i < removal_number; i++) {
 				int index = floor(pow(randlib.unifrnd(0, 0.99), arguments[1]) * requestPosition.size());
-				EAV* vehicle = requestPosition[index].second.first;
-				Request* req = requestPosition[index].first;
-				Route route = current_solution.routes[vehicle];
-				Route before_route = route;
-				route.removeRequest(req);
+				Route route = current_solution.routes[requestPosition[index].second.first];
+				route.removeRequest(requestPosition[index].first);
 				route.updateMetrics(true);
-				if (!route.isFeasible()) {
-					std::cout << before_route.isFeasible() << "\n";
-					printf("Infeasible Removal? \n");
-				}
+				if (!route.isFeasible()) printf("Infeasible Removal? \n");
 				current_solution.addRoute(route);
-				current_solution.removed.push_back(req);
+				current_solution.removed.push_back(requestPosition[index].first);
 				requestPosition.erase(requestPosition.begin() + index);
 			}
 
@@ -902,14 +896,11 @@ namespace algorithms {
 				EAV* random_vehicle = inst.vehicles[randlib.randint(0,inst.vehicles.size()-1)];
 				if (!s.routes[random_vehicle].hasNoRequests()) {
 					Route route = s.routes[random_vehicle];
-					Route before_route = route;
 					Request* req = route.selectRandomRequest(randlib);
 					route.removeRequest(req);
 					route.updateMetrics(true);
-					if (!route.isFeasible()) {
-						std::cout << before_route.isFeasible() << "\n";
-						printf("Infeasible Removal? \n");
-					}
+					if (route.isFeasible()){}
+					else printf("Infeasible Removal? \n");
 					s.addRoute(route);
 					s.removed.push_back(req);
 					i++;
@@ -928,12 +919,12 @@ namespace algorithms {
 			std::vector<std::pair<std::vector<Request*>, std::pair<EAV*, double>>> zssPosition;
 			zssPosition.reserve(inst.requests.size());
 			for (EAV* v : inst.vehicles) {
-				for (auto pair : s.routes[v].natural_sequences) {
+				for (std::pair<int,int> pair : s.routes[v].natural_sequences) {
 					std::vector<Request*> removedRequests;
 					double cost(0.0);
 					for (int i = pair.first; i < pair.second; i++) {
 						if (s.routes[v].path[i]->isOrigin()) removedRequests.push_back(inst.getRequest(s.routes[v].path[i]));
-						cost+=inst.getTravelTime(s.routes[v].path[i], s.routes[v].path[i + 1])+s.routes[v].getWaitingTime(i);
+						cost+=inst.getTravelTime(s.routes[v].path[i], s.routes[v].path[i + 1])+s.routes[v].waiting_times[i];
 					}
 					
 					std::pair<EAV*, double> locationAndCost(v, cost);
@@ -988,9 +979,6 @@ namespace algorithms {
 				route.insertNode(inst.getDepot(vehicle, "start"), 0);
 				route.insertNode(inst.getDepot(vehicle, "end"), 1);
 				route.updateMetrics(true);
-				if (!route.isFeasible()) {
-					printf("Infeasible Removal? \n");
-				}
 				s.addRoute(route);
 			}
 			return s;
@@ -1015,14 +1003,12 @@ namespace algorithms {
 				if (s.rejected.empty()) {
 					int randomIndex = randlib.randint(0, assignments.size() - 1);
 					s.removed.push_back(assignments[randomIndex].first);
-					Route before_route;
-					Route random_route = before_route = s.routes[assignments[randomIndex].second];
+					Route random_route = s.routes[assignments[randomIndex].second];
 					removed_req = assignments[randomIndex].first;
 					assignments.erase(assignments.begin() + randomIndex);
 					random_route.removeRequest(removed_req);
 					random_route.updateMetrics(true);
 					if (!random_route.isFeasible()) { 
-						std::cout << before_route.isFeasible() << "\n";
 						std::cout << "Infeasible Similarity Removal?\n"; 
 					}
 					s.addRoute(random_route);
@@ -1041,9 +1027,7 @@ namespace algorithms {
 					Route route = s.routes[assignments[index].second];
 					route.removeRequest(assignments[index].first);
 					route.updateMetrics(true);
-					if (!route.isFeasible()) {
-						printf("Infeasible Removal? \n");
-					}
+					if (!route.isFeasible()) printf("Infeasible Removal? \n");
 					s.addRoute(route);
 					s.removed.push_back(assignments[index].first);
 					assignments.erase(assignments.begin() + index);
@@ -1062,7 +1046,7 @@ namespace algorithms {
 		{
 			std::random_device rd;
 			RandLib randlib(rd());
-			for (Request* req : s.rejected) s.removed.push_back(req);
+			s.removed.insert(s.removed.end(), s.rejected.begin(), s.rejected.end());
 			s.rejected.clear();
 			while (!s.removed.empty()) {
 				Position bestMove;
@@ -1120,7 +1104,7 @@ namespace algorithms {
 		{
 			std::random_device rd;
 			RandLib randlib(rd());
-			for (Request* req : s.rejected) s.removed.push_back(req);
+			s.removed.insert(s.removed.end(), s.rejected.begin(), s.rejected.end());
 			s.rejected.clear();
 			while (!s.removed.empty()) {
 				std::vector<Position> leastMoves;
@@ -1186,7 +1170,7 @@ namespace algorithms {
 		{
 			std::random_device rd;
 			RandLib randlib(rd());
-			for (Request* req : s.rejected) s.removed.push_back(req);
+			s.removed.insert(s.removed.end(), s.rejected.begin(), s.rejected.end());
 			s.rejected.clear();
 			std::sort(s.removed.begin(), s.removed.end(), [](Request* r1, Request* r2) {
 				return r1->origin->earliest < r2->origin->earliest;
@@ -1228,7 +1212,7 @@ namespace algorithms {
 		Solution RandomInsertion(Solution s, const std::vector<double>& arguments) {
 			std::random_device rd;
 			RandLib randlib(rd());
-			for (Request* req : s.rejected) s.removed.push_back(req);
+			s.removed.insert(s.removed.end(), s.rejected.begin(), s.rejected.end());
 			s.rejected.clear();
 			std::shuffle(s.removed.begin(), s.removed.end(), rd);
 			for (int i = 0; i < s.removed.size(); i++) {
@@ -1269,8 +1253,8 @@ namespace algorithms {
 		{
 			std::random_device rd;
 			RandLib randlib(rd());
-
-			for (Request* req : s.rejected) s.removed.push_back(req);
+			double kappa = arguments[randlib.randint(0, arguments.size() - 1)];
+			s.removed.insert(s.removed.end(), s.rejected.begin(), s.rejected.end());
 			s.rejected.clear();
 			while (!s.removed.empty()) {
 				Position bestMove;
@@ -1308,7 +1292,7 @@ namespace algorithms {
 						double regret(0.0);
 						int counter = 1;
 						for (auto vehicleMovePair : RouteBestMove) {
-							if (counter > arguments[0]) break;
+							if (counter > kappa) break;
 							regret = regret + vehicleMovePair.second.cost - RouteBestMove.front().second.cost;
 							counter++;
 						}

@@ -49,13 +49,20 @@ void Route::BasicScheduling() {
     start_of_service_times.resize(n);
     FTS.clear();
     FTS.resize(n);
+    waiting_times.clear();
+    waiting_times.resize(n);
+
 
     start_of_service_times.front() = vehicle->start_time;
-    for (int i = 1; i < n; i++) computeStartOfServiceTime(i);
+    waiting_times.front() = 0.0;
+    for (int i = 1; i < n; i++) {
+        computeStartOfServiceTime(i);
+        waiting_times[i] = getWaitingTime(i);
+    }
 
     FTS.back() = std::max(0.0, vehicle->end_time - start_of_service_times.back());
     for (int i = n - 2; i >= 0; i--) {
-        FTS[i] = getWaitingTime(i) + std::min(FTS[i + 1], std::max(0.0, path[i]->latest - start_of_service_times[i]));
+        FTS[i] = waiting_times[i] + std::min(FTS[i + 1], std::max(0.0, path[i]->latest - start_of_service_times[i]));
     }
 }
 
@@ -76,22 +83,22 @@ void Route::storeNaturalSequences()
 double Route::get_forward_time_slack(int i)
 {
     double min_time_slack = DBL_MAX;
+    double cumul_waiting_time = 0.0;
 
     for (int j = i; j < path.size(); j++) {
-        double latest_j = (j == path.size() - 1) ? vehicle->end_time : path[j]->latest;
         double ride_time = 0.0, max_travel_time=path[j]->maximum_travel_time;
         if (path[j]->isDestination() && node_indices[inst.getRequest(path[j])->origin] < i) {
             ride_time = getRideTime(node_indices[inst.getRequest(path[j])->origin]);
             max_travel_time =inst.getRequest(path[j])->origin->maximum_travel_time;
         }
-        double cumul_waiting_time = 0.0;
-        for (int x = i+1; x < j+1; x++) cumul_waiting_time += getWaitingTime(x);
 
         double time_slack = cumul_waiting_time +
-            std::max(0.0, std::min(latest_j - start_of_service_times[j], max_travel_time - ride_time));
+            std::max(0.0, std::min((j == path.size() - 1) ? vehicle->end_time : path[j]->latest - start_of_service_times[j], max_travel_time - ride_time));
 
         if (time_slack < min_time_slack)
             min_time_slack = time_slack;
+
+        cumul_waiting_time += waiting_times[j+1];
     }
 
     return min_time_slack;
@@ -99,19 +106,17 @@ double Route::get_forward_time_slack(int i)
 
 double Route::get_modified_time_slack(int i) {
     double min_time_slack = DBL_MAX;
-
+    double cumul_waiting_time = 0.0;
     for (int j = i; j < path.size(); j++) {
-        double latest_j = (j == path.size() - 1) ? vehicle->end_time : path[j]->latest;
-        double time_slack,cumul_waiting_time = 0.0;
-        for (int x = i + 1; x < j + 1; x++) cumul_waiting_time += getWaitingTime(x);
-        
+        double time_slack;
         if (path[j]->isDestination() && node_indices[inst.getRequest(path[j])->origin] < i)
             time_slack = cumul_waiting_time;
         else
-            time_slack = cumul_waiting_time + std::max(0.0,latest_j-start_of_service_times[j]);
+            time_slack = cumul_waiting_time + std::max(0.0, (j == path.size() - 1) ? vehicle->end_time : path[j]->latest -start_of_service_times[j]);
 
         if (time_slack < min_time_slack)
             min_time_slack = time_slack;
+        
     }
 
     return min_time_slack;
@@ -135,34 +140,28 @@ double Route::getRideTime(int index) {
 }
 
 void Route::LazyScheduling() {
-    int n = (int)path.size();
-    double forward_time_slack_at_0 = get_forward_time_slack(0);
+    int n = path.size();
 
-    double cumul_waiting_time = 0.0;
-    for (int i = 1; i < n - 1; i++) cumul_waiting_time += getWaitingTime(i);
+    start_of_service_times.front() = vehicle->start_time+std::min(get_forward_time_slack(0),
+        std::accumulate(waiting_times.begin()+1,waiting_times.end()-1,0.0));
 
-    // STEP 4
-    start_of_service_times[0] = vehicle->start_time+std::min(forward_time_slack_at_0, cumul_waiting_time);
-
-    // STEP 5
-    for (int i = 1; i < path.size(); i++) computeStartOfServiceTime(i);
+    for (int i = 1; i < path.size(); i++) {
+        computeStartOfServiceTime(i);
+        waiting_times[i] = getWaitingTime(i);
+    }
 
     // STEP 7
     for (int j = 1; j < path.size() - 1; j++) {
         if (path[j]->isOrigin()) {
-            // STEP 7 (a)
-            double forward_time_slack = get_forward_time_slack(j);
 
-            // STEP 7 (b) 
-           cumul_waiting_time = 0.0;
-           for (int x = j+1; x < path.size()-1; x++) cumul_waiting_time += getWaitingTime(x);
-
-           double w_j = std::min(forward_time_slack, cumul_waiting_time);
-
-           start_of_service_times[j]+=w_j;
+           start_of_service_times[j]+= std::min(get_forward_time_slack(j),
+               std::accumulate(waiting_times.begin() + j + 1, waiting_times.end() - 1, 0.0));
 
             // STEP 7 (c):
-           for (int i = j + 1; i < path.size(); i++) computeStartOfServiceTime(i);
+           for (int i = j + 1; i < path.size(); i++) {
+               computeStartOfServiceTime(i);
+               waiting_times[i] = getWaitingTime(i);
+           }
         }
     }
 
@@ -215,7 +214,7 @@ void Route::computeStartOfServiceTime(int i)
 void Route::deleteRedundantChargingStations()
 { 
     bool routeChanged = false;
-    for (auto pair:desiredAmount){
+    for (std::pair<CStation*,double> pair:desiredAmount){
         Node* cs_node = inst.nodes[pair.first->id - 1];
         if (node_indices.contains(cs_node)) {
             int index = node_indices[cs_node];
@@ -536,7 +535,6 @@ bool Route::isInsertionBatteryFeasible(Request* request, int i, int j,bool incre
 
 bool Route::isInsertionTimeFeasible(Request* request, int i, int j)
 {
-    double cumul_waiting_time = 0.0;
     //Check if a charging station is located before the request.
     double new_bos_i = start_of_service_times[i];
     int closest = 0;
@@ -552,9 +550,7 @@ bool Route::isInsertionTimeFeasible(Request* request, int i, int j)
         double added_charging_time = cs->getRequiredTime(battery[closest]+getAddedDistance(request,i,j)*inst.dischargeRate,desiredAmount[cs])-
             cs->getRequiredTime(battery[closest],desiredAmount[cs]);
         if (added_charging_time > FTS[closest]) return false;
-        cumul_waiting_time = 0.0;
-        for (int x = closest + 1; x <= i; x++) cumul_waiting_time+=getWaitingTime(x);
-        new_bos_i += std::max(0.0, added_charging_time - cumul_waiting_time);
+        new_bos_i += std::max(0.0, added_charging_time - std::accumulate(waiting_times.begin() + closest + 1, waiting_times.begin() + i + 1, 0.0));
     }
 
     double bos_origin = std::max(request->origin->earliest, new_bos_i + path[i]->service_duration + inst.getTravelTime(path[i], request->origin));
@@ -569,10 +565,9 @@ bool Route::isInsertionTimeFeasible(Request* request, int i, int j)
         added_time = std::max(0.0, bos_origin + request->origin->service_duration + inst.getTravelTime(request->origin, path[i + 1]) 
             - start_of_service_times[i+1]);
         if (added_time > FTS[i + 1]) return false;
-        cumul_waiting_time = 0.0;
-        for (int x = i + 1; x < j+1; x++) cumul_waiting_time += getWaitingTime(x);
 
-        double new_bos_j = start_of_service_times[j] + std::max(0.0, added_time - cumul_waiting_time);
+        double new_bos_j = start_of_service_times[j] +
+            std::max(0.0, added_time - std::accumulate(waiting_times.begin() + i + 1, waiting_times.begin() + j + 1, 0.0));
         bos_destination = std::max(request->destination->earliest, new_bos_j + path[j]->service_duration + 
                inst.getTravelTime(path[j],request->destination));
     }

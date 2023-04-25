@@ -70,7 +70,7 @@ void PerformanceEvaluation(int numberOfRunsPerInstance) {
 }
 
 int main(){
-	inst.loadInstance("Cordeau-EADARP/a2-16.txt",0.7);
+	inst.loadInstance("Cordeau-EADARP/a3-30.txt",0.4);
 	Solution initial = algorithms::details::Init1();
 	Run run = algorithms::ALNS(initial, 10000, INT_MAX, 0.05, 7, 0.1, 100, 0.5);
 	return EXIT_SUCCESS;
