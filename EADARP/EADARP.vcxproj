@@ -150,7 +150,6 @@
     <ClCompile Include="Algorithms.cpp" />
     <ClCompile Include="CStation.cpp" />
     <ClCompile Include="EAV.cpp" />
-    <ClCompile Include="FixedDouble.cpp" />
     <ClCompile Include="Instance.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Node.cpp" />
@@ -164,7 +163,6 @@
     <ClInclude Include="Algorithms.h" />
     <ClInclude Include="CStation.h" />
     <ClInclude Include="EAV.h" />
-    <ClInclude Include="FixedDouble.h" />
     <ClInclude Include="Instance.h" />
     <ClInclude Include="Node.h" />
     <ClInclude Include="Position.h" />

@@ -17,7 +17,7 @@ double Solution::objectiveValue() const
     return 0.75*total_travel_distance+0.25*total_excess_ride_time+rejected.size()*(inst.avgDistance*inst.requests.size());
 }
 
-void Solution::addRoute(Route r)
+void Solution::addRoute(const Route& r)
 {
     // In case we are updating the vehicle's route...
     if (routes.contains(r.vehicle)) { 
@@ -27,7 +27,7 @@ void Solution::addRoute(Route r)
     }
     total_travel_distance+=r.travel_distance;
     total_excess_ride_time+=r.excess_ride_time;
-    for (CStation* s : inst.charging_stations) if (r.assigned_cs[s]) stationVisits[s]++;
+    for (CStation* s : inst.charging_stations) if (r.assigned_cs.at(s)) stationVisits[s]++;
     routes[r.vehicle] = r;
 }
 
@@ -48,10 +48,10 @@ void Solution::Display(int i) {
             for (size_t i = 0; i < length - 1; i++)
             {
                 printf("%s%i%s%f%s%f%s","(",
-                    my_route.second.path.at(i)->id, ",", my_route.second.battery.at(i), "kWh,", my_route.second.start_of_service_times.at(i), ")->");
+                    my_route.second.path.at(i)->id, ",", dbl_round(my_route.second.battery.at(i),3), "kWh,", dbl_round(my_route.second.start_of_service_times.at(i),2), ")->");
             }
             printf("%s%i%s%f%s%f%s",
-            "(" , my_route.second.path.back()->id , "," , my_route.second.battery.back() , "kWh," , my_route.second.start_of_service_times.back() , ")");
+            "(" , my_route.second.path.back()->id , "," , dbl_round(my_route.second.battery.back(), 3), "kWh," , dbl_round(my_route.second.start_of_service_times.back(), 2), ")");
             printf("\n\n");
         }
     }

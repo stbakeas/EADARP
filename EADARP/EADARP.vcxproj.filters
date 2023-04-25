@@ -48,9 +48,6 @@
     <ClCompile Include="Algorithms.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="FixedDouble.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="EAV.h">
@@ -84,9 +81,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Position.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="FixedDouble.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

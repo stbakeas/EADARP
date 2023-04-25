@@ -23,7 +23,7 @@ public:
 	 *
 	 * @param r Route.
 	 */
-	void addRoute(Route r);
+	void addRoute(const Route& r);
 
 	/**
 	 * Default constructor.

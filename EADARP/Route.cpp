@@ -7,7 +7,6 @@
 #include <algorithm>
 #include "RandLib.h"
 #include "Position.h"
-#include "FixedDouble.h"
 
 double dbl_round(long double number, int precision) {
     int decimals = std::pow(10, precision);
