@@ -1,7 +1,5 @@
 #include "Node.h"
-Node::Node(int id) {
-	this->id = id;
-}
+Node::Node(int id):id(id){}
 
 bool Node::isOrigin() {
 	return type == Type::ORIGIN;

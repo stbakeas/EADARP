@@ -14,13 +14,13 @@ struct Position {
 	Position() {};
 	~Position() {};
 
-	Position(EAV* vehicle, int origin_pos, int dest_pos, const std::vector<std::pair<CStation*, Node*>>& cs_pos) {
-		this->vehicle = vehicle;
-		this->origin_pos = origin_pos;
-		this->dest_pos = dest_pos;
-		this->cs_pos = cs_pos;
-		cost = 0.0;
-	}
+	Position(EAV* vehicle, int origin_pos, int dest_pos, const std::vector<std::pair<CStation*, Node*>>& cs_pos):
+		vehicle(vehicle),
+		origin_pos(origin_pos),
+		dest_pos(dest_pos),
+		cs_pos(cs_pos),
+		cost(0.0){}
+	
 
 	bool operator<(const Position& a) {
 		if (this->vehicle->id < a.vehicle->id) return true;

@@ -19,12 +19,8 @@ namespace algorithms
 		int score;
 		int attempts;
 
-		Statistics(Heuristic heuristic,double weight, int score, int attempts) {
-			this->heuristic = heuristic;
-			this->weight = weight;
-			this->score = score;
-			this->attempts = attempts;
-		}
+		Statistics(Heuristic heuristic, double weight, int score, int attempts)
+			:heuristic(heuristic), weight(weight), score(score), attempts(attempts){}
 
 	};
 

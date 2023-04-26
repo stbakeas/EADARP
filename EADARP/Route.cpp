@@ -13,9 +13,13 @@ double dbl_round(long double number, int precision) {
     return (std::round(number * decimals)) / decimals;
 }
 
-Route::Route(EAV* vehicle): batteryFeasible(true),capacityFeasible(true),timeFeasible(true),policy(ChargingPolicy::MINIMAL),adaptiveCharging(true) {
-	this->vehicle = vehicle;
-}
+Route::Route(EAV* vehicle): 
+    batteryFeasible(true),
+    capacityFeasible(true),
+    timeFeasible(true),
+    policy(ChargingPolicy::MINIMAL),
+    adaptiveCharging(true),
+    vehicle(vehicle){}
 
 int Route::getLoad(int i) {
     return (i == 0) ? 0 : getLoad(i - 1) + path[i]->load;

@@ -70,7 +70,7 @@ void PerformanceEvaluation(int numberOfRunsPerInstance) {
 }
 
 int main(){
-	inst.loadInstance("Cordeau-EADARP/a2-16.txt",0.4);
+	inst.loadInstance("Cordeau-EADARP/a5-50.txt",0.4);
 	Solution initial = algorithms::details::Init1();
 	double avgTime = 0.0;
 	for (int i = 0; i < 15; i++) {
