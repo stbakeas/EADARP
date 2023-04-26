@@ -14,7 +14,7 @@ struct Position {
 	Position() {};
 	~Position() {};
 
-	Position(EAV* vehicle, int origin_pos, int dest_pos, std::vector<std::pair<CStation*, Node*>> cs_pos) {
+	Position(EAV* vehicle, int origin_pos, int dest_pos, const std::vector<std::pair<CStation*, Node*>>& cs_pos) {
 		this->vehicle = vehicle;
 		this->origin_pos = origin_pos;
 		this->dest_pos = dest_pos;

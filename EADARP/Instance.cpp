@@ -427,7 +427,7 @@ void Instance::loadInstance(const std::string instance_file_name,float gamma) {
     }
 
     for (int i = 0; i < vehicles_num; i++) {
-        vehicles[i]->battery_return_percentage = gamma;
+        vehicles[i]->minBatteryUponReturn = vehicles[i]->total_battery*gamma;
     }
 
     double recharge_rate;

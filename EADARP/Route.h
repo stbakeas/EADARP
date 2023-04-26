@@ -29,15 +29,13 @@ public:
 	std::vector<double> FTS;
 
 	std::vector<double> battery;
-	std::unordered_map<CStation*, bool> assigned_cs;
 	std::vector<std::pair<int, int>> natural_sequences;
 	double travel_distance, excess_ride_time;
 	Route() {};
 	Route(EAV* vehicle);
-	bool isEmpty(); //Check if the route contains absolutely no nodes
-	bool hasNoRequests(); // Check if the route contains no requests.
-	bool isFeasible();
-	Request* selectRandomRequest(RandLib randlib);
+	inline bool isEmpty() { return !path.size(); } //Check if the route contains absolutely no nodes
+	inline bool hasNoRequests() { return requests.empty(); } // Check if the route contains no requests.
+	inline bool isFeasible() { return batteryFeasible && capacityFeasible && timeFeasible; }
 	bool isInsertionCapacityFeasible(Request* request, int i, int j) const;
 	bool isInsertionBatteryFeasible(Request* request, int i, int j,bool increaseChargingTime);
 	bool isInsertionTimeFeasible(Request* request, int i, int j);
@@ -50,7 +48,7 @@ public:
 	double getAddedDistance(Request* request, int i, int j) const; //For a request
 	double get_forward_time_slack(int i);
 	double get_modified_time_slack(int i);
-	CStation* findBestChargingStationAfter(int i, std::unordered_map<CStation*, unsigned int> stationVisits);
+	CStation* findBestChargingStationAfter(int i, std::unordered_map<CStation*, unsigned int>& stationVisits);
 
 
 	/**
@@ -58,7 +56,7 @@ public:
 	 */
 	void deleteRedundantChargingStations();
 	void computeChargingTime(int nodePosition);
-	void computeLoad(int i);
+	inline void computeLoad(int i);
 	void computeStartOfServiceTime(int i);
 	void computeBatteryLevel(int i);
 	void computeTotalCost(bool debug);

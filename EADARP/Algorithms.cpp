@@ -104,13 +104,13 @@ namespace algorithms {
 
 			if (dbl_round(s.objectiveValue(), 5) < dbl_round(incumbent.objectiveValue(), 5)) {
 				incumbent = s;
-				stats[0][removalIndex].score += 5;
-				stats[1][insertionIndex].score += 5;
+				stats[0][removalIndex].score += 7;
+				stats[1][insertionIndex].score += 7;
 			}
 			else if (SimulatedAnnealingAcceptanceCriterion(s, incumbent, temperature)) {
 				incumbent = s;
-				stats[0][removalIndex].score += 7;
-				stats[1][insertionIndex].score += 7;
+				stats[0][removalIndex].score += 5;
+				stats[1][insertionIndex].score += 5;
 				
 			}
 
@@ -174,16 +174,16 @@ namespace algorithms {
 			int example_route_size = s.routes[available_vehicles[vehicle_index]].path.size();
 			int reserve_size = available_vehicles.size() * example_route_size * (example_route_size - 1) / 2;
 
+			std::vector<std::pair<CStation*, Node*>> empty_station_vector;
+
 			std::vector<Position> strong_batset;
 			strong_batset.reserve(reserve_size);
 			std::vector<Position> weak_batset;
 			weak_batset.reserve(reserve_size);
-			std::vector<Position> capset;
-			capset.reserve(reserve_size);
 			for (EAV* v : available_vehicles) {
 				if (r->forbidden_vehicles.contains(v->id)) continue;
 				size_t length = s.routes[v].path.size() - 1;
-				bool batteryNotFound = true;
+				bool batteryNotFound = true, timeAndCapacityFeasibleFound = false;
 				for (size_t i = 0; i < length; ++i)
 				{
 					if (inst.isForbiddenArc(s.routes[v].path[i], r->origin)) continue;
@@ -199,34 +199,31 @@ namespace algorithms {
 								inst.isForbiddenArc(s.routes[v].path[j], r->destination))
 								continue;
 						}
-						if (s.routes[v].isInsertionTimeFeasible(r, i, j)) {
-							if (s.routes[v].isInsertionCapacityFeasible(r, i, j))
-							{
-								capset.emplace_back(v, i, j,std::vector<std::pair<CStation*,Node*>>());
+						if (s.routes[v].isInsertionTimeFeasible(r, i, j) && 
+							s.routes[v].isInsertionCapacityFeasible(r, i, j)) {
+								timeAndCapacityFeasibleFound = true;
 								if (s.routes[v].isInsertionBatteryFeasible(r, i, j, false)) {
-									strong_batset.emplace_back(v, i, j, std::vector<std::pair<CStation*, Node*>>());
+									strong_batset.emplace_back(v, i, j,empty_station_vector);
 									batteryNotFound = false;
 								}
 								if (s.routes[v].isInsertionBatteryFeasible(r, i, j, true)) {
-									weak_batset.emplace_back(v, i, j, std::vector<std::pair<CStation*, Node*>>());
+									weak_batset.emplace_back(v, i, j,empty_station_vector);
 									batteryNotFound = false;
 								}
-
-							}
 						}
 					}
 				}
-				if (batteryNotFound && includeCS) {
+				if (batteryNotFound && timeAndCapacityFeasibleFound && includeCS) {
 
 					bool positionFound = false;
 					std::vector<size_t> zero_load_positions;
-					zero_load_positions.reserve(s.routes[v].path.size() / 2);
-					for (int i = s.routes[v].path.size() - 2; i>=0; i--)
+
+					for (int i = s.routes[v].path.size() - 2; i!=-1; i--)
 					{
 						if (s.routes[v].loads[i] == 0) zero_load_positions.push_back(i);
 					}
 					std::vector<std::vector<Node*>> power_set = PowerSet(s.routes[v],zero_load_positions,std::min(zero_load_positions.size(),inst.charging_stations.size()));
-					for (std::vector<Node*> subset : power_set) {
+					for (auto subset : power_set) {
 						std::vector<std::pair<CStation*, Node*>> added_stations;
 						for (Node* zero_load_node : subset) {
 							int node_index = s.routes[v].node_indices[zero_load_node];
@@ -249,25 +246,22 @@ namespace algorithms {
 								for (size_t j = i; j < length; ++j)
 								{
 
-									if (i == j) {
-										if (inst.isForbiddenArc(r->destination, s.routes[v].path[i + 1]))
-											continue;
-									}
-									else {
+									if (inst.isForbiddenArc(r->destination, s.routes[v].path[j + 1]))
+										continue;
+
+									if (i != j)
+									{
 										if (inst.isForbiddenArc(r->origin, s.routes[v].path[i + 1])) break;
 										if (inst.isForbiddenArc(r->destination, s.routes[v].path[j + 1]) ||
 											inst.isForbiddenArc(s.routes[v].path[j], r->destination))
 											continue;
 									}
-									if (s.routes[v].isInsertionTimeFeasible(r, i, j)) {
-										if (s.routes[v].isInsertionCapacityFeasible(r, i, j))
-										{
-											capset.emplace_back(v, i, j,added_stations);
-											if (s.routes[v].isInsertionBatteryFeasible(r, i, j, true)) {
-												weak_batset.emplace_back(v, i, j,added_stations);
-												positionFound = true;
-											}
-										}
+									if (s.routes[v].isInsertionTimeFeasible(r, i, j) && 
+										s.routes[v].isInsertionCapacityFeasible(r, i, j) && 
+										s.routes[v].isInsertionBatteryFeasible(r, i, j, true))
+									{	
+										weak_batset.emplace_back(v, i, j,added_stations);
+										positionFound = true;
 									}
 								}
 							}
@@ -294,10 +288,6 @@ namespace algorithms {
 				}
 			}
 			return strong_batset.empty()?weak_batset:strong_batset;
-		}
-		
-		double DistanceBetweenUsers(Request* r1, Request* r2) {
-			return inst.getTravelTime(r1->origin, r2->origin) + inst.getTravelTime(r1->destination, r2->destination);
 		}
 
 		Solution Init1() {
@@ -353,9 +343,7 @@ namespace algorithms {
 				}
 				
 				for (EAV* v : vehicles) {
-					for (CStation* cs : charging_stations) {
-
-						if (s.routes[v].assigned_cs[cs]) {
+					for (const auto& [cs,amount] : s.routes[v].desiredAmount) {
 							Node* cs_node = inst.nodes[cs->id - 1];
 							Route new_route = s.routes[v];
 							new_route.removeNode(new_route.node_indices[cs_node]);
@@ -385,7 +373,6 @@ namespace algorithms {
 									new_route.updateMetrics();
 								}
 							}
-						}
 						s = best;
 					}
 				}
@@ -430,7 +417,7 @@ namespace algorithms {
 											s.routes[v1].path.end()
 										);
 										new_r1.path.back()=inst.getDepot(v1, "end");
-										new_r2.path.front()=inst.getDepot(v2, "start");
+										new_r2.path[0]=inst.getDepot(v2, "start");
 
 										new_r1.updateMetrics();
 										new_r2.updateMetrics();
@@ -502,7 +489,7 @@ namespace algorithms {
 								included_routes.at(i).path.end()
 							);
 							new_r1.path.back() = inst.getDepot(new_r1.vehicle, "end");
-							new_r2.path.front() = inst.getDepot(new_r2.vehicle, "start");
+							new_r2.path[0] = inst.getDepot(new_r2.vehicle, "start");
 
 							new_r1.updateMetrics();
 							new_r2.updateMetrics();
@@ -896,7 +883,7 @@ namespace algorithms {
 				EAV* random_vehicle = inst.vehicles[randlib.randint(0,inst.vehicles.size()-1)];
 				if (!s.routes[random_vehicle].hasNoRequests()) {
 					Route route = s.routes[random_vehicle];
-					Request* req = route.selectRandomRequest(randlib);
+					Request* req = route.requests[randlib.randint(0, route.requests.size() - 1)];;
 					route.removeRequest(req);
 					route.updateMetrics(true);
 					if (route.isFeasible()){}
@@ -971,15 +958,16 @@ namespace algorithms {
 			int i = 0;
 			while (i < removal_number) {
 				EAV* vehicle = inst.vehicles[randlib.randint(0, inst.vehicles.size()-1)];
-				if (s.routes[vehicle].hasNoRequests()) continue;
-				for (Request* req : s.routes[vehicle].requests) s.removed.push_back(req);
-				i += s.routes[vehicle].requests.size();
+				if (!s.routes[vehicle].hasNoRequests()) {
+					for (Request* req : s.routes[vehicle].requests) s.removed.push_back(req);
+					i += s.routes[vehicle].requests.size();
 
-				Route route(vehicle);
-				route.insertNode(inst.getDepot(vehicle, "start"), 0);
-				route.insertNode(inst.getDepot(vehicle, "end"), 1);
-				route.updateMetrics(true);
-				s.addRoute(route);
+					Route route(vehicle);
+					route.insertNode(inst.getDepot(vehicle, "start"), 0);
+					route.insertNode(inst.getDepot(vehicle, "end"), 1);
+					route.updateMetrics(true);
+					s.addRoute(route);
+				}
 			}
 			return s;
 
@@ -1129,7 +1117,7 @@ namespace algorithms {
 							minUser = request;
 						}
 						else if (feasibleMoves.size()==min_size) {
-							if (feasibleMoves.front().cost < leastMoves.front().cost) {
+							if (feasibleMoves[0].cost < leastMoves[0].cost) {
 								leastMoves = feasibleMoves;
 								minUser = request;
 							}
@@ -1219,10 +1207,9 @@ namespace algorithms {
 				Request* request = s.removed[i];
 				std::vector<Position> possibleMoves = InsertionNeighborhood(request, s, inst.vehicles, true);
 				std::vector<Position> feasibleMoves;
-				for (Position move : possibleMoves) {
-					double cost = s.getInsertionCost(request, move);
-					if (cost != DBL_MAX) feasibleMoves.push_back(move);
-				}
+				std::copy_if(possibleMoves.begin(), possibleMoves.end(), std::back_inserter(feasibleMoves),
+					[&s, request](Position move) {return s.getInsertionCost(request, move) != DBL_MAX; }
+				);
 				if (feasibleMoves.size()) {
 					Position bestMove = feasibleMoves[randlib.randint(0,feasibleMoves.size()-1)];
 					Route new_route = s.routes[bestMove.vehicle];
@@ -1265,10 +1252,9 @@ namespace algorithms {
 					std::vector<Position> possibleMoves = InsertionNeighborhood(request, s, inst.vehicles,true);
 					std::vector<Position> feasibleMoves;
 					feasibleMoves.reserve(possibleMoves.size());
-					for (size_t i = 0; i < possibleMoves.size(); i++) {
-						possibleMoves[i].cost = s.getInsertionCost(request, possibleMoves[i]);
-						if (possibleMoves[i].cost != DBL_MAX) feasibleMoves.push_back(possibleMoves[i]);
-					}
+					std::copy_if(possibleMoves.begin(), possibleMoves.end(), std::back_inserter(feasibleMoves),
+						[&s, request](Position move) {return s.getInsertionCost(request, move) != DBL_MAX; }
+					);
 					if (feasibleMoves.empty()) continue;
 					else {
 						std::vector<std::pair<int, Position>> RouteBestMove;
@@ -1293,17 +1279,17 @@ namespace algorithms {
 						int counter = 1;
 						for (auto vehicleMovePair : RouteBestMove) {
 							if (counter > kappa) break;
-							regret = regret + vehicleMovePair.second.cost - RouteBestMove.front().second.cost;
+							regret = regret + vehicleMovePair.second.cost - RouteBestMove[0].second.cost;
 							counter++;
 						}
 						if (max_regret < regret) {
-							bestMove = RouteBestMove.front().second;
+							bestMove = RouteBestMove[0].second;
 							max_regret = regret;
 							minUser = request;
 						}
 						else if (regret == max_regret) {
-							if (RouteBestMove.front().second.cost < bestMove.cost) {
-								bestMove = RouteBestMove.front().second;
+							if (RouteBestMove[0].second.cost < bestMove.cost) {
+								bestMove = RouteBestMove[0].second;
 								minUser = request;
 							}
 						}
@@ -1345,17 +1331,17 @@ namespace algorithms {
 			std::unordered_map<int, EAV*> assignment;
 			for (const auto& [vehicle, route] : s.routes) {
 				for (Request* req : route.requests) {
-					assignment[req->origin->id] = vehicle;
+					assignment.emplace(req->origin->id,vehicle);
 				}
 			}
 
+			std::vector<Request*> assigned;
+			assigned.reserve(inst.requests.size());
+			for (const auto& [reqId, vehicle] : assignment)
+				assigned.push_back(inst.getRequest(inst.nodes[reqId - 1]));
+
 			for (Request* removedRequest : s.removed) {
 				bool insertionFailed = true;
-
-				std::vector<Request*> assigned;
-				assigned.reserve(inst.requests.size());
-				for (const auto& [reqId, vehicle] : assignment)
-					assigned.push_back(inst.getRequest(inst.nodes[reqId - 1]));
 
 				std::sort(assigned.begin(), assigned.end(), [removedRequest](Request* a, Request* b) {
 					return inst.similarity[removedRequest->origin->id - 1][a->origin->id - 1] <

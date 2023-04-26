@@ -40,8 +40,6 @@ namespace algorithms
 
 		std::vector<Position> InsertionNeighborhood(Request* r, Solution s,const std::vector<EAV*>& available_vehicles, bool includeCS = false);
 
-		double DistanceBetweenUsers(Request* r1,Request* r2);
-
         /**
          * Randomly selects a request and inserts it at its best position.
          */

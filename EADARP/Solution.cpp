@@ -5,10 +5,7 @@
 #include <numeric>
 #include <map>
 
-Solution::Solution(){
-    total_travel_distance = total_excess_ride_time = 0.0;
-    rejected.reserve(inst.requests.size());
-    removed.reserve(inst.requests.size()/2);
+Solution::Solution() :total_travel_distance(0.0),total_excess_ride_time(0.0){
     for (CStation* s : inst.charging_stations) stationVisits[s] = 0;
 }
 
@@ -23,11 +20,11 @@ void Solution::addRoute(const Route& r)
     if (routes.contains(r.vehicle)) { 
         total_travel_distance-=routes[r.vehicle].travel_distance;
         total_excess_ride_time-=routes[r.vehicle].excess_ride_time;
-        for (CStation* s : inst.charging_stations) if (routes[r.vehicle].assigned_cs[s]) stationVisits[s]--;
+        for (const auto& [station,amount] : routes[r.vehicle].desiredAmount) stationVisits[station]--;
     }
     total_travel_distance+=r.travel_distance;
     total_excess_ride_time+=r.excess_ride_time;
-    for (CStation* s : inst.charging_stations) if (r.assigned_cs.at(s)) stationVisits[s]++;
+    for (const auto& [station, amount] : r.desiredAmount) stationVisits[station]++;
     routes[r.vehicle] = r;
 }
 
@@ -70,14 +67,11 @@ void Solution::AddDepots()
     }
 }
 
-double Solution::getInsertionCost(Request* r, Position p) {
+double Solution::getInsertionCost(Request* r, const Position& p) {
     
-    double current_cost, new_cost;
+    double new_cost;
     Route old_route, test_route;
-    
-    current_cost = objectiveValue();
-    old_route = routes[p.vehicle];
-    test_route = old_route;
+    old_route = test_route = routes[p.vehicle];
     if (p.cs_pos.size()) {
         for (const auto& [station, node] : p.cs_pos) {
             int index = test_route.node_indices[node] + 1;
@@ -91,13 +85,13 @@ double Solution::getInsertionCost(Request* r, Position p) {
     }
     test_route.insertRequest(r, p.origin_pos + 1, p.dest_pos + 1);
     test_route.updateMetrics();
-    if (test_route.isFeasible()) {
+    if (!test_route.isFeasible()) return DBL_MAX;
+    else {
         addRoute(test_route);
         new_cost = objectiveValue();
         addRoute(old_route);
-        return new_cost - current_cost;
+        return new_cost - objectiveValue();
     }
-    else return DBL_MAX;
    
 }
 

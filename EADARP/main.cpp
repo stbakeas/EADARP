@@ -70,8 +70,14 @@ void PerformanceEvaluation(int numberOfRunsPerInstance) {
 }
 
 int main(){
-	inst.loadInstance("Cordeau-EADARP/a3-30.txt",0.4);
+	inst.loadInstance("Cordeau-EADARP/a2-16.txt",0.4);
 	Solution initial = algorithms::details::Init1();
-	Run run = algorithms::ALNS(initial, 10000, INT_MAX, 0.05, 7, 0.1, 100, 0.5);
+	double avgTime = 0.0;
+	for (int i = 0; i < 15; i++) {
+		Run run = algorithms::ALNS(initial, 10000, INT_MAX, 0.05, 7, 0.1, 100, 0.5);
+		avgTime += run.elapsed_seconds;
+	}
+	std::cout << avgTime / 15 << "\n";
+	
 	return EXIT_SUCCESS;
 }

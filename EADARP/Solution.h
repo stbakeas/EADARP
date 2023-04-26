@@ -53,5 +53,5 @@ public:
 	/*
 	* Calculate the added cost of inserting a request in the solution
 	*/
-	double getInsertionCost(Request* r, Position p);
+	double getInsertionCost(Request* r, const Position& p);
 };
