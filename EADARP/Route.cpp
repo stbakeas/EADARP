@@ -65,8 +65,7 @@ void Route::storeNaturalSequences()
 double Route::get_forward_time_slack(int i)
 {
     double min_time_slack = DBL_MAX;
-    double cumul_waiting_time = 0.0;
-
+    double cumulWaitingTime = 0.0;
     for (int j = i; j < path.size(); j++) {
         double ride_time = 0.0, max_travel_time=path[j]->maximum_travel_time;
         if (path[j]->isDestination() && node_indices[inst.getRequest(path[j])->origin] < i) {
@@ -74,13 +73,13 @@ double Route::get_forward_time_slack(int i)
             max_travel_time =inst.getRequest(path[j])->origin->maximum_travel_time;
         }
 
-        double time_slack = cumul_waiting_time +
+        double time_slack = cumulWaitingTime +
             std::max(0.0, std::min((j == path.size() - 1) ? vehicle->end_time : path[j]->latest - start_of_service_times[j], max_travel_time - ride_time));
 
         if (time_slack < min_time_slack)
             min_time_slack = time_slack;
-
-        cumul_waiting_time += waiting_times[j+1];
+        
+        cumulWaitingTime += waiting_times[j + 1];
     }
 
     return min_time_slack;
@@ -106,8 +105,8 @@ double Route::get_modified_time_slack(int i) {
 
 double Route::getWaitingTime(int index) {
    
-     return index?(!path[index - 1]->isChargingStation()) ? start_of_service_times[index] - (start_of_service_times[index - 1] + path[index - 1]->service_duration + inst.getTravelTime(path[index-1], path[index])) :
-          start_of_service_times[index] - (start_of_service_times[index - 1] + inst.getChargingStation(path[index - 1])->getRequiredTime(battery[index - 1], desiredAmount[inst.getChargingStation(path[index - 1])]) + inst.getTravelTime(path[index-1], path[index])):0.0;
+     return !path[index - 1]->isChargingStation() ? std::max(0.0,path[index]->earliest - (start_of_service_times[index - 1] + path[index - 1]->service_duration + inst.getTravelTime(path[index-1], path[index]))) :
+          std::max(0.0,path[index]->earliest - (start_of_service_times[index - 1] + inst.getChargingStation(path[index - 1])->getRequiredTime(battery[index - 1], desiredAmount[inst.getChargingStation(path[index - 1])]) + inst.getTravelTime(path[index-1], path[index])));
 }
 
 double Route::getRideTime(int index) {
@@ -123,8 +122,8 @@ void Route::LazyScheduling() {
         std::accumulate(waiting_times.begin()+1,waiting_times.end()-1,0.0));
 
     for (int i = 1; i < n; i++) {
-        computeStartOfServiceTime(i);
         waiting_times[i] = getWaitingTime(i);
+        computeStartOfServiceTime(i);
     }
 
     // STEP 7
@@ -136,8 +135,8 @@ void Route::LazyScheduling() {
 
             // STEP 7 (c):
            for (int i = j + 1; i < n; i++) {
-               computeStartOfServiceTime(i);
                waiting_times[i] = getWaitingTime(i);
+               computeStartOfServiceTime(i);
            }
         }
     }
@@ -248,11 +247,12 @@ void Route::computeTotalCost(bool debug) {
             if (debug) {
                 std::cout << "Time Window:" << dbl_round(start_of_service_times[i] - path[i]->latest, 3) << "\n";
                 std::cout << "Ride Time:" << getRideTime(i) << "\n";
+                std::cout << "Breakpoint:" << "\n";
             }
             return;
         }
         
-        if (path[i]->isOrigin()) excess_ride_time += getRideTime(i) - inst.getTravelTime(inst.getRequest(path[i])->origin, inst.getRequest(path[i])->destination);
+        if (path[i]->isOrigin()) excess_ride_time += getRideTime(i) - inst.getTravelTime(path[i], inst.getRequest(path[i])->destination);
         
     }
 
@@ -337,8 +337,7 @@ void Route::computeChargingTime(int nodePosition) {
                 if (path[x]->isChargingStation()) break;
                 current_node = path[x];
             }
-
-            if (current_node->isEndingDepot() && desired_amount < vehicle->minBatteryUponReturn) desired_amount += vehicle->minBatteryUponReturn;
+            if (current_node->isEndingDepot()) desired_amount += vehicle->minBatteryUponReturn;
             desiredAmount[s]=std::min(desired_amount, vehicle->total_battery);
             
         }
@@ -362,11 +361,13 @@ CStation* Route::findBestChargingStationAfter(int i,std::unordered_map<CStation*
     RandLib randlib(rd());
     std::vector<CStation*> reachable_stations;
     reachable_stations.reserve(inst.charging_stations.size());
-    for (const auto& [station, amount] : desiredAmount) {
-        if (stationVisits[station] < inst.maxVisitsPerStation &&
-            battery[i] - inst.getFuelConsumption(path[i], inst.nodes[station->id - 1]) >= 0)
-            reachable_stations.push_back(station);
-    }
+    std::copy_if(inst.charging_stations.begin(),
+        inst.charging_stations.end(),
+        std::back_inserter(reachable_stations),
+        [&stationVisits,i,this](CStation* station) {return stationVisits[station] < inst.maxVisitsPerStation &&
+        !desiredAmount.contains(station) &&
+        battery[i] - inst.getFuelConsumption(path[i], inst.nodes[station->id - 1]) >= 0.0; }
+    );
     if (!reachable_stations.empty())
     {
         //Find the charging station with the minimum distance that can be reached from the node.
