@@ -40,7 +40,6 @@ public:
 	bool isInsertionBatteryFeasible(Request* request, int i, int j,bool increaseChargingTime);
 	bool isInsertionTimeFeasible(Request* request, int i, int j);
 	std::pair<size_t, size_t> getRequestPosition(const Request* r);
-	int getLoad(int i); //Get the load at position i
 	double getWaitingTime(int index);
 	double getRideTime(int index);
 	double getDuration(); //Get the route's total duration

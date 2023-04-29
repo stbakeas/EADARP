@@ -11,7 +11,7 @@ namespace algorithms
 
 	typedef std::pair<Request*, EAV*> Assignment;
 
-	typedef Solution(*Heuristic)(Solution, const std::vector<double>&);
+	typedef Solution(*Heuristic)(Solution, const std::array<double, 2>&);
 
 	struct Statistics {
 		Heuristic heuristic;
@@ -84,39 +84,39 @@ namespace algorithms
 		* Removal Ratio = 0 
 		* Randomness = 1
 		*/
-		Solution WorstRemoval(Solution s, const std::vector<double>& arguments);
+		Solution WorstRemoval(Solution s, const std::array<double, 2>& arguments);
 
 		//Removal Ratio = 0;
-		Solution RandomRemoval(Solution s, const std::vector<double>& arguments);
+		Solution RandomRemoval(Solution s, const std::array<double, 2>& arguments);
 
 		//Removal Ratio = 0;
-		Solution SimilarityRemoval(Solution s, const std::vector<double>& arguments);
+		Solution SimilarityRemoval(Solution s, const std::array<double, 2>& arguments);
 
 		/*
 		* Removal Ratio = 0
 		* Randomness = 1
 		*/
-		Solution ZeroSplitRemoval(Solution s, const std::vector<double>& arguments);
+		Solution ZeroSplitRemoval(Solution s, const std::array<double, 2>& arguments);
 
 		// Removal Ratio = 0
-		Solution EntireRouteRemoval(Solution s, const std::vector<double>& arguments);
+		Solution EntireRouteRemoval(Solution s, const std::array<double, 2>& arguments);
 
 		//Empty
-		Solution GreedyInsertion(Solution s, const std::vector<double>& arguments);
+		Solution GreedyInsertion(Solution s, const std::array<double, 2>& arguments);
 
 		//Empty
-		Solution LeastOptionsInsertion(Solution s, const std::vector<double>& arguments);
+		Solution LeastOptionsInsertion(Solution s, const std::array<double, 2>& arguments);
 
-		Solution SortedRandomizedInsertion(Solution s, const std::vector<double>& arguments);
+		Solution SortedRandomizedInsertion(Solution s, const std::array<double, 2>& arguments);
 
 
 		/*
 		* Regret Degree = 0
 		*/
-		Solution RegretInsertion(Solution s, const std::vector<double>& arguments);
+		Solution RegretInsertion(Solution s, const std::array<double, 2>& arguments);
 
 
-		Solution RandomInsertion(Solution s, const std::vector<double>& arguments);
+		Solution RandomInsertion(Solution s, const std::array<double, 2>& arguments);
 
 		/*
 		Proposed by Ying Luo and Paul Schonfeld in 2007

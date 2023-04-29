@@ -11,7 +11,7 @@ Solution::Solution() :total_travel_distance(0.0),total_excess_ride_time(0.0){
 
 double Solution::objectiveValue() const
 {
-    return 0.75*total_travel_distance+0.25*total_excess_ride_time+rejected.size()*(inst.avgDistance*inst.requests.size());
+    return 0.75*total_travel_distance+0.25*total_excess_ride_time+inst.rejectedRequestPenalties[rejected.size()];
 }
 
 void Solution::addRoute(const Route& r)
@@ -51,6 +51,9 @@ void Solution::Display(int i) {
             "(" , my_route.second.path.back()->id , "," , dbl_round(my_route.second.battery.back(), 3), "kWh," , dbl_round(my_route.second.start_of_service_times.back(), 2), ")");
             printf("\n\n");
         }
+        for (Request* request : rejected) {
+            std::cout << request->origin->id << "\n";
+        }
     }
     else printf("%f,%d\n",objectiveValue(),rejected.size());
 }
@@ -60,8 +63,12 @@ void Solution::AddDepots()
     for (EAV* v : inst.vehicles)
     {
         Route r = Route(v);
-        r.insertNode(inst.getDepot(v, "start"), 0);
-        r.insertNode(inst.getDepot(v, "end"), 1);
+        r.path.resize(2);
+        r.path[0]=inst.getDepot(v,1);
+        r.path[1] =inst.getDepot(v,0);
+        r.travel_distance += inst.getTravelTime(r.path[0], r.path[1]);
+        r.node_indices[r.path[0]] = 0;
+        r.node_indices[r.path[1]] = 1;
         r.updateMetrics();
         addRoute(r);
     }
@@ -69,30 +76,12 @@ void Solution::AddDepots()
 
 double Solution::getInsertionCost(Request* r, const Position& p) {
     
-    double new_cost;
-    Route old_route, test_route;
-    old_route = test_route = routes[p.vehicle];
-    if (p.cs_pos.size()) {
-        for (const auto& [station, node] : p.cs_pos) {
-            int index = test_route.node_indices[node] + 1;
-            std::for_each(test_route.path.begin() + index, test_route.path.end(), [&test_route](Node* node)
-                {test_route.node_indices[node]++;}
-            );
-            test_route.insertNode(inst.nodes[station->id - 1],index);
-            test_route.node_indices[inst.nodes[station->id - 1]] = index;
-            inst.operationsSaved++;
-        }
-    }
+    Route test_route = routes[p.vehicle];
+    for (const auto& [station, node] : p.cs_pos) test_route.insertNode(inst.nodes[station->id - 1], test_route.node_indices[node] + 1);
     test_route.insertRequest(r, p.origin_pos + 1, p.dest_pos + 1);
     test_route.updateMetrics();
-    if (!test_route.isFeasible()) return DBL_MAX;
-    else {
-        addRoute(test_route);
-        new_cost = objectiveValue();
-        addRoute(old_route);
-        return new_cost - objectiveValue();
-    }
-   
+    return !test_route.isFeasible() ? DBL_MAX : 0.75 * (test_route.travel_distance - routes[p.vehicle].travel_distance)
+        + 0.25*(test_route.excess_ride_time - routes[p.vehicle].excess_ride_time);
 }
 
 

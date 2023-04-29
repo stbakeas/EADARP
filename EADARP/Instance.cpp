@@ -12,6 +12,7 @@
 
 Instance::~Instance()
 {
+
     for (Node* node : nodes)
         delete node;
 
@@ -21,11 +22,10 @@ Instance::~Instance()
     for (Request* req : requests)
         delete req;
 
-    for (CStation* station : charging_stations) {
-        delete station;
-    }
+    for (CStation* station : charging_stations) 
+       delete station;
+    
 }
-
 void Instance::RandomGenerator(int request_num, int vehicles_num, int stations_num, double max_latitude,
     double max_longitude, double planning_horizon, int seed, float returnBatteryPercentage) {
     RandLib randlib(seed);
@@ -186,7 +186,7 @@ void Instance::loadMalheiros(const std::string instance_file_name,float gamma,in
 
 
     int max_route_duration;
-    std::vector<int> vehicle_capacities(4);
+    std::array<int,4> vehicle_capacities;
 
     Node* node_start = new Node(2 * requests_num + 1);
     Node* node_end = new Node(2 * requests_num + vehicles_num + 2);
@@ -275,7 +275,7 @@ void Instance::loadMalheiros(const std::string instance_file_name,float gamma,in
             file >> node->service_duration;
             file >> node->maximum_travel_time;
             if (!node->maximum_travel_time) node->maximum_travel_time = DBL_MAX;
-            std::vector<int> loads(4);
+            std::array<int,4> loads;
             for (int i = 0; i < loads.size(); i++) file >> loads[i];
             node->load = std::accumulate(loads.begin(), loads.end(), 0.0);
 
@@ -447,10 +447,12 @@ void Instance::loadInstance(const std::string instance_file_name,float gamma) {
 
 void Instance::createDistanceMatrix()
 {
-    distanceMatrix.resize(nodes.size());
+    size_t n = nodes.size();
+    distanceMatrix.resize(n);
+    forbiddenArcs.resize(n);
     for (int i = 0; i < distanceMatrix.size(); i++) {
-        distanceMatrix[i].resize(nodes.size());
-
+        distanceMatrix[i].resize(n);
+        forbiddenArcs[i].resize(n);
         for (int j = 0; j < distanceMatrix.size(); j++) {
             distanceMatrix[i][j] =sqrt(
                 pow(nodes[i]->x - nodes[j]->x, 2) + pow(nodes[i]->y - nodes[j]->y, 2)
@@ -544,8 +546,9 @@ void Instance::Preprocessing() {
     int count = 0;
 
     int n = inst.requests.size();
-    for (int i = 0; i < distanceMatrix.size(); i++) {
-        for (int j = 0; j < distanceMatrix.size(); j++) {
+    size_t length = distanceMatrix.size();
+    for (int i = 0; i < length; i++) {
+        for (int j = 0; j <length; j++) {
             if (i != j) {
 
                 if ((abs(nodes[i]->load + nodes[j]->load) > inst.maximumCapacity) ||
@@ -556,13 +559,13 @@ void Instance::Preprocessing() {
                     (nodes[i]->isDestination() && nodes[j]->isOrigin() && i == j + n) ||
                     (nodes[i]->earliest + nodes[i]->service_duration + getTravelTime(nodes[i], nodes[j]) > nodes[j]->latest))
                 {
-                    distanceMatrix[i][j] = DBL_MAX;
+                   forbiddenArcs[i][j] = 1;
                 }
                 else if (nodes[i]->isOrigin() && getTravelTime(nodes[i], nodes[j]) + nodes[j]->service_duration + getTravelTime(nodes[j], nodes[i + n]) > nodes[i]->maximum_travel_time) {
-                    distanceMatrix[i][j] = DBL_MAX;
-                    distanceMatrix[j][n + i] = DBL_MAX;
+                    forbiddenArcs[i][j] = 1;
+                    forbiddenArcs[j][n + i]=1;
                 }
-                if (distanceMatrix[i][j] != DBL_MAX) {
+                if (!forbiddenArcs[i][j]) {
                     avgDistance += distanceMatrix[i][j];
                     count++;
                 }
@@ -572,7 +575,8 @@ void Instance::Preprocessing() {
         }
     }
     avgDistance /= count;
-    
+    rejectedRequestPenalties.resize(n+1);
+    for (int i = 0; i <= n; i++) rejectedRequestPenalties[i] = i * n* avgDistance;
     //Incompatible request-vehicle pairs
     for (Request* r : inst.requests){
         for (EAV* v: inst.vehicles) {
@@ -604,10 +608,9 @@ CStation* Instance::getChargingStation(Node* node) {
     return charging_stations[node->id-2*requests.size()-2*(vehicles.size()+1)-1];
 }
 
-Node* Instance::getDepot(EAV* vehicle,std::string start_or_end)
+Node* Instance::getDepot(EAV* vehicle, bool startingDepot)
 {
-    if (start_or_end == "start") return nodes[vehicle->id-1];
-    else return nodes[vehicles.size()+vehicle->id-1];
+    return startingDepot? nodes[vehicle->id-1]:nodes[vehicles.size()+vehicle->id-1];
 }
 
 double Instance::getTravelTime(Node* n1, Node* n2, bool costMode)
@@ -621,5 +624,5 @@ double Instance::getFuelConsumption(Node* n1, Node* n2)
 }
 
 bool Instance::isForbiddenArc(Node* n1, Node* n2) {
-    return distanceMatrix[n1->id-1][n2->id-1] == DBL_MAX;
+    return forbiddenArcs[n1->id-1][n2->id-1];
 }

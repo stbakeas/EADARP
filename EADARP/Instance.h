@@ -44,15 +44,16 @@ public:
     std::vector<CStation*> charging_stations;
     std::vector<std::vector<double>> distanceMatrix;
     std::vector<std::vector<double>> similarity;
+    std::vector<std::vector<int>> forbiddenArcs;
     int numberOfDepots;
     unsigned int maxVisitsPerStation;
-    int operationsSaved = 0;
     double Horizon;
     double dischargeRate;
-    int maximumCapacity = 0.0;
+    int maximumCapacity = 0;
     double returnedBatteryPercentage;
     double maximumBattery;
     double avgDistance;
+    std::vector<double> rejectedRequestPenalties;
 
     ~Instance();
     Instance(const Instance&) = delete;
@@ -66,7 +67,7 @@ public:
         double max_longitude, double planning_horizon, int seed, float returnBatteryPercentage);
 
     //Get the start depot associated with a vehicle
-    Node* getDepot(EAV* vehicle,std::string start_or_end);
+    Node* getDepot(EAV* vehicle,bool startingDepot);
 
     /**
      * Get the request associated with a node.

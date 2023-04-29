@@ -79,9 +79,8 @@ namespace algorithms {
 		double intra_percentage(0.05);
 		std::random_device rd;
 		RandLib randlib(rd());
-		std::vector<double> removalArguments = { removalPercentage,removalRandomness };
-		std::vector<double> insertionArguments;
-		for (int i = 2; i <= inst.vehicles.size(); i++) insertionArguments.push_back(double(i));
+     	std::array<double,2> removalArguments = { removalPercentage,removalRandomness };
+		std::array<double,2> insertionArguments;
 		Run run;
 		auto start = std::chrono::steady_clock::now();
 		Solution incumbent=run.best = run.init = initial;
@@ -98,7 +97,7 @@ namespace algorithms {
 			for (std::vector<EAV*>::iterator v = inst.vehicles.begin(); v != inst.vehicles.end(); ++v) {
 				Route route = s.routes[*v];
 				route.deleteRedundantChargingStations();
-				s.addRoute(route);
+				if (route.batteryFeasible) s.addRoute(route);
 			}
 			s = stats[1][insertionIndex].heuristic(s, insertionArguments);		
 
@@ -107,21 +106,21 @@ namespace algorithms {
 
 			if (dbl_round(s.objectiveValue(), 5) < dbl_round(incumbent.objectiveValue(), 5)) {
 				incumbent = s;
-				stats[0][removalIndex].score += 10;
-				stats[1][insertionIndex].score += 10;
+				stats[0][removalIndex].score += 5;
+				stats[1][insertionIndex].score += 5;
 			}
 			else if (SimulatedAnnealingAcceptanceCriterion(s, incumbent, temperature)) {
 				incumbent = s;
-				stats[0][removalIndex].score += 5;
-				stats[1][insertionIndex].score += 5;
+				stats[0][removalIndex].score += 7;
+				stats[1][insertionIndex].score += 7;
 				
 			}
 
 			
 			if (dbl_round(s.objectiveValue(), 5) < dbl_round(run.best.objectiveValue(), 5)) {
 					run.best = incumbent = s;
-					stats[0][removalIndex].score += 20;
-					stats[1][insertionIndex].score += 20;
+					stats[0][removalIndex].score += 10;
+					stats[1][insertionIndex].score += 10;
 					run.best_iter = iter;
 					printf("New best Found:%f, Rejected: %d\n",s.objectiveValue(),s.rejected.size());
 					no_imp_iter = 0;
@@ -186,23 +185,25 @@ namespace algorithms {
 				if (r->forbidden_vehicles.contains(v->id)) continue;
 				size_t length = s.routes[v].path.size() - 1;
 				bool batteryNotFound = true, timeAndCapacityFeasibleFound = false;
+				
 				for (size_t i = 0; i < length; ++i)
 				{
+				    
 					if (inst.isForbiddenArc(s.routes[v].path[i], r->origin)) continue;
+					
 					for (size_t j = i; j < length; ++j)
 					{
-						if (i == j) {
-							if (inst.isForbiddenArc(r->destination, s.routes[v].path[i + 1]))
-								continue;
-						}
-						else {
+					    if (inst.isForbiddenArc(r->destination, s.routes[v].path[j + 1]))
+					    	continue;
+						
+						if (i!=j) {
 							if (inst.isForbiddenArc(r->origin, s.routes[v].path[i + 1])) break;
-							if (inst.isForbiddenArc(r->destination, s.routes[v].path[j + 1]) ||
-								inst.isForbiddenArc(s.routes[v].path[j], r->destination))
+							if (inst.isForbiddenArc(s.routes[v].path[j], r->destination))
 								continue;
 						}
-						if (s.routes[v].isInsertionTimeFeasible(r, i, j) && 
-							s.routes[v].isInsertionCapacityFeasible(r, i, j)) {
+						
+						if (s.routes[v].isInsertionCapacityFeasible(r, i, j) 
+							&& s.routes[v].isInsertionTimeFeasible(r, i, j)) {
 								timeAndCapacityFeasibleFound = true;
 								if (s.routes[v].isInsertionBatteryFeasible(r, i, j, false)) {
 									strong_batset.emplace_back(v, i, j,empty_station_vector);
@@ -213,17 +214,14 @@ namespace algorithms {
 									batteryNotFound = false;
 								}
 						}
+						
 					}
 				}
-				if (batteryNotFound && timeAndCapacityFeasibleFound && includeCS) {
+				if (batteryNotFound && timeAndCapacityFeasibleFound  && includeCS) {
 
 					bool positionFound = false;
 					std::vector<size_t> zero_load_positions;
-
-					for (int i = s.routes[v].path.size() - 2; i>=0; i--)
-					{
-						if (s.routes[v].loads[i] == 0) zero_load_positions.push_back(i);
-					}
+					for (int i = s.routes[v].path.size() - 2; i>=0; i--) if (s.routes[v].loads[i] == 0) zero_load_positions.push_back(i);
 					std::vector<std::vector<Node*>> power_set = PowerSet(s.routes[v],zero_load_positions,std::min(zero_load_positions.size(),inst.charging_stations.size()));
 					for (auto subset : power_set) {
 						std::vector<std::pair<CStation*, Node*>> added_stations;
@@ -244,18 +242,17 @@ namespace algorithms {
 							length = s.routes[v].path.size() - 1;
 							for (size_t i = 0; i < length; ++i)
 							{
+								
 								if (inst.isForbiddenArc(s.routes[v].path[i], r->origin)) continue;
-								for (size_t j = i; j < length; ++j)
+								
+								for (size_t j = i; j <length; ++j)
 								{
-
-									if (i == j) {
-										if (inst.isForbiddenArc(r->destination, s.routes[v].path[i + 1]))
+									if (inst.isForbiddenArc(r->destination, s.routes[v].path[j + 1]))
 											continue;
-									}
-									else {
+									
+									if(i!=j) {
 										if (inst.isForbiddenArc(r->origin, s.routes[v].path[i + 1])) break;
-										if (inst.isForbiddenArc(r->destination, s.routes[v].path[j + 1]) ||
-											inst.isForbiddenArc(s.routes[v].path[j], r->destination))
+										if  (inst.isForbiddenArc(s.routes[v].path[j], r->destination))
 											continue;
 									}
 									if (s.routes[v].isInsertionTimeFeasible(r, i, j) && 
@@ -268,22 +265,9 @@ namespace algorithms {
 								}
 							}
 						}
-						for (const auto& [station,node]:added_stations) {
-							Node* cs_node = inst.nodes[station->id - 1];
-							int node_index = s.routes[v].node_indices[cs_node];
-							s.routes[v].removeNode(node_index);
-							s.routes[v].node_indices.erase(cs_node);
-							std::for_each(s.routes[v].path.begin() + node_index, s.routes[v].path.end(), [&s,v](Node* node)
-								{
-									s.routes[v].node_indices[node]--;
-								}
-							); 
-							inst.operationsSaved++;
-						}
-						if (!added_stations.empty()) {
-							s.routes[v].updateMetrics();
-							inst.operationsSaved--;
-						}
+						for (const auto& [station,node]:added_stations) 
+							s.routes[v].removeNode(s.routes[v].node_indices[inst.nodes[station->id-1]]);
+						if (!added_stations.empty()) s.routes[v].updateMetrics();
 						if (positionFound) break;
 
 					}
@@ -314,19 +298,10 @@ namespace algorithms {
 				}
 				if (min_cost != DBL_MAX) {
 					Route inserted_route = solution.routes[min_pos.vehicle];
-					if (min_pos.cs_pos.size()) {
-						for (const auto& [station, node] : min_pos.cs_pos) {
-							int index = inserted_route.node_indices[node] + 1;
-							std::for_each(inserted_route.path.begin()+index, inserted_route.path.end(), [&inserted_route](Node* node) {
-								inserted_route.node_indices[node]++;
-							});
-							inserted_route.insertNode(inst.nodes[station->id - 1],index);
-							inserted_route.node_indices[inst.nodes[station->id - 1]] = index;
-							inst.operationsSaved++;
-						}
-					}
+					for (const auto& [station, node] : min_pos.cs_pos) 
+						inserted_route.insertNode(inst.nodes[station->id - 1], inserted_route.node_indices[node] + 1);
 					inserted_route.insertRequest(request, min_pos.origin_pos + 1, min_pos.dest_pos + 1);
-					inserted_route.updateMetrics();
+					inserted_route.updateMetrics(true);
 					solution.addRoute(inserted_route);
 				}
 				else solution.rejected.push_back(request); 
@@ -823,33 +798,24 @@ namespace algorithms {
 
 #pragma region Destroy Operators
 
-		Solution WorstRemoval(Solution s, const std::vector<double>& arguments)
+		Solution WorstRemoval(Solution s, const std::array<double, 2>& arguments)
 		{
 			std::random_device rd;
 			RandLib randlib(rd());
-			Solution current_solution = s;
 			size_t num_of_assigned_requests = inst.requests.size() - s.rejected.size();
 			int removal_number = ceil(num_of_assigned_requests * arguments[0]);
 
 			std::vector<std::pair<Request*, std::pair<EAV*, double>>> requestPosition;
 			requestPosition.reserve(inst.requests.size());
 			for (EAV* v : inst.vehicles) {
-				Route new_route;
-				for (size_t i = 1; i < current_solution.routes[v].path.size() - 1; i++)
+				
+				for (Request* r: s.routes[v].requests)
 				{
-					if (current_solution.routes[v].path[i]->isOrigin()) {
-						Request* r = inst.getRequest(current_solution.routes[v].path[i]);
-						double old_cost, new_cost,cost;
-						old_cost = current_solution.objectiveValue();
-						new_route = current_solution.routes[v];
-						new_route.removeRequest(r);
-						new_route.updateMetrics();
-						current_solution.addRoute(new_route);
-						new_cost = current_solution.objectiveValue();
-						cost = old_cost - new_cost;
-						requestPosition.emplace_back(r,std::make_pair(v,cost ));
-						current_solution = s;
-					}
+					Route new_route = s.routes[v];
+					new_route.removeRequest(r);
+					new_route.updateMetrics();
+					requestPosition.emplace_back(r,std::make_pair(v, 0.75 * (s.routes[v].travel_distance - new_route.travel_distance) +
+						0.25 * (s.routes[v].excess_ride_time - new_route.excess_ride_time)));
 				}
 			}
 			std::sort(requestPosition.begin(), requestPosition.end(),
@@ -858,19 +824,19 @@ namespace algorithms {
 			);
 			for (size_t i = 0; i < removal_number; i++) {
 				int index = floor(pow(randlib.unifrnd(0, 0.99), arguments[1]) * requestPosition.size());
-				Route route = current_solution.routes[requestPosition[index].second.first];
+				Route route = s.routes[requestPosition[index].second.first];
 				route.removeRequest(requestPosition[index].first);
 				route.updateMetrics(true);
 				if (!route.isFeasible()) printf("Infeasible Removal? \n");
-				current_solution.removed.push_back(requestPosition[index].first);
-				current_solution.addRoute(route);
+				s.removed.push_back(requestPosition[index].first);
+				s.addRoute(route);
 				requestPosition.erase(requestPosition.begin() + index);
 			}
 
-			return current_solution;
+			return s;
 		}
 
-		Solution RandomRemoval(Solution s, const std::vector<double>& arguments)
+		Solution RandomRemoval(Solution s, const std::array<double, 2>& arguments)
 		{
 			std::random_device rd;
 			RandLib randlib(rd());
@@ -896,7 +862,7 @@ namespace algorithms {
 			return s;
 		}
 
-		Solution ZeroSplitRemoval(Solution s, const std::vector<double>& arguments) {
+		Solution ZeroSplitRemoval(Solution s, const std::array<double, 2>& arguments) {
 			std::random_device rd;
 			RandLib randlib(rd());
 			size_t num_of_assigned_requests = inst.requests.size() - s.rejected.size();
@@ -930,10 +896,6 @@ namespace algorithms {
 				Route route = s.routes[vehicle];
 				for (Request* req : zssPosition[index].first) {
 					route.removeRequest(req);
-					route.node_indices.clear();
-					for (int i = 0; i < route.path.size(); i++) {
-						route.node_indices[route.path[i]] = i;
-					}
 					s.removed.push_back(req);
 					i++;
 				}
@@ -945,7 +907,7 @@ namespace algorithms {
 			return s;
 		}
 
-		Solution EntireRouteRemoval(Solution s, const std::vector<double>& arguments)
+		Solution EntireRouteRemoval(Solution s, const std::array<double, 2>& arguments)
 		{
 			std::random_device rd;
 			RandLib randlib(rd());
@@ -970,7 +932,7 @@ namespace algorithms {
 
 		}
 
-		Solution SimilarityRemoval(Solution s, const std::vector<double>& arguments)
+		Solution SimilarityRemoval(Solution s, const std::array<double, 2>& arguments)
 		{
 			std::random_device rd;
 			RandLib randlib(rd());
@@ -1027,7 +989,7 @@ namespace algorithms {
 
 #pragma region Repair Operators
 
-		Solution GreedyInsertion(Solution s, const std::vector<double>& arguments)
+		Solution GreedyInsertion(Solution s, const std::array<double, 2>& arguments)
 		{
 			std::random_device rd;
 			RandLib randlib(rd());
@@ -1060,19 +1022,8 @@ namespace algorithms {
 				}
 				else {
 					Route new_route = s.routes[bestMove.vehicle];
-					if (bestMove.cs_pos.size()) {
-						for (const auto& [station, node] : bestMove.cs_pos) {
-							int index = new_route.node_indices[node] + 1;
-							std::for_each(new_route.path.begin() + index, new_route.path.end(),
-								[&new_route](Node* node) {
-									new_route.node_indices[node]++;
-								}
-							);
-							new_route.insertNode(inst.nodes[station->id - 1], index);
-							new_route.node_indices[inst.nodes[station->id-1]]=index;
-							inst.operationsSaved++;
-						}
-					}
+					for (const auto& [station, node] : bestMove.cs_pos)
+						new_route.insertNode(inst.nodes[station->id - 1], new_route.node_indices[node] + 1);
 					new_route.insertRequest(minUser, bestMove.origin_pos + 1, bestMove.dest_pos + 1);
 					new_route.updateMetrics(true);
 					if (!new_route.isFeasible()) std::cout << "Infeasible Insertion?\n";
@@ -1083,14 +1034,14 @@ namespace algorithms {
 			return s;
 		}
 
-		Solution LeastOptionsInsertion(Solution s, const std::vector<double>& arguments)
+		Solution LeastOptionsInsertion(Solution s, const std::array<double, 2>& arguments)
 		{
 			std::random_device rd;
 			RandLib randlib(rd());
 			while (!s.rejected.empty()) {
 				std::vector<Position> leastMoves;
 				size_t min_size = SIZE_MAX;
-				Request* minUser;
+				Request* minUser=nullptr;
 				for (Request* request : s.rejected) {
 					std::vector<Position> possibleMoves = InsertionNeighborhood(request, s, inst.vehicles,true);
 					std::vector<Position> feasibleMoves;
@@ -1125,17 +1076,8 @@ namespace algorithms {
 				else {
 					Position bestMove = leastMoves[floor(pow(randlib.unifrnd(0, 0.99), arguments[1]) * leastMoves.size())];
 					Route new_route = s.routes[bestMove.vehicle];
-					if (bestMove.cs_pos.size()) {
-						for (const auto& [station, node] : bestMove.cs_pos) {
-							int index = new_route.node_indices[node] + 1;
-							std::for_each(new_route.path.begin() + index, new_route.path.end(), [&new_route](Node* node)
-								{new_route.node_indices[node]++;}
-							);
-							new_route.insertNode(inst.nodes[station->id - 1], index);
-							new_route.node_indices[inst.nodes[station->id - 1]] = index;
-							inst.operationsSaved++;
-						}
-					}
+					for (const auto& [station, node] : bestMove.cs_pos) 
+						new_route.insertNode(inst.nodes[station->id - 1], new_route.node_indices[node] + 1);
 					new_route.insertRequest(minUser, bestMove.origin_pos + 1, bestMove.dest_pos + 1);
 					new_route.updateMetrics(true);
 					if (!new_route.isFeasible()) std::cout << "Infeasible Insertion?\n";
@@ -1147,7 +1089,7 @@ namespace algorithms {
 			return s;
 		}
 
-		Solution SortedRandomizedInsertion(Solution s, const std::vector<double>& arguments)
+		Solution SortedRandomizedInsertion(Solution s, const std::array<double, 2>& arguments)
 		{
 			std::random_device rd;
 			RandLib randlib(rd());
@@ -1165,17 +1107,8 @@ namespace algorithms {
 				if (feasibleMoves.size()) {
 					Position bestMove = feasibleMoves[floor(pow(randlib.unifrnd(0, 0.99), arguments[1]) * feasibleMoves.size())];
 					Route new_route = s.routes[bestMove.vehicle];
-					if (bestMove.cs_pos.size()) {
-						for (const auto& [station, node] : bestMove.cs_pos) {
-							int index = new_route.node_indices[node] + 1;
-							std::for_each(new_route.path.begin() + index, new_route.path.end(), [&new_route](Node* node)
-								{new_route.node_indices[node]++; }
-							);
-							new_route.insertNode(inst.nodes[station->id - 1], index);
-							new_route.node_indices[inst.nodes[station->id - 1]] = index;
-							inst.operationsSaved++;
-						}
-					}
+					for (const auto& [station, node] : bestMove.cs_pos)
+						new_route.insertNode(inst.nodes[station->id - 1], new_route.node_indices[node] + 1);
 					new_route.insertRequest(request, bestMove.origin_pos + 1, bestMove.dest_pos + 1);
 					new_route.updateMetrics(true);
 					if (!new_route.isFeasible()) std::cout << "Infeasible Insertion?\n";
@@ -1187,7 +1120,7 @@ namespace algorithms {
 			return s;
 		}
 			
-		Solution RandomInsertion(Solution s, const std::vector<double>& arguments) {
+		Solution RandomInsertion(Solution s, const std::array<double, 2>& arguments) {
 			std::random_device rd;
 			RandLib randlib(rd());
 			std::copy(s.rejected.begin(), s.rejected.end(), std::back_inserter(s.removed));
@@ -1203,17 +1136,8 @@ namespace algorithms {
 				if (feasibleMoves.size()) {
 					Position bestMove = feasibleMoves[randlib.randint(0,feasibleMoves.size()-1)];
 					Route new_route = s.routes[bestMove.vehicle];
-					if (bestMove.cs_pos.size()) {
-						for (const auto& [station, node] : bestMove.cs_pos) {
-							int index = new_route.node_indices[node] + 1;
-							std::for_each(new_route.path.begin() + index, new_route.path.end(), [&new_route](Node* node)
-								{new_route.node_indices[node]++; }
-							);
-							new_route.insertNode(inst.nodes[station->id - 1], index);
-							new_route.node_indices[inst.nodes[station->id - 1]] = index;
-							inst.operationsSaved++;
-						}
-					}
+					for (const auto& [station, node] : bestMove.cs_pos)
+						new_route.insertNode(inst.nodes[station->id - 1], new_route.node_indices[node] + 1);
 					new_route.insertRequest(request, bestMove.origin_pos + 1, bestMove.dest_pos + 1);
 					new_route.updateMetrics(true);
 					if (!new_route.isFeasible()) std::cout << "Infeasible Insertion?\n";
@@ -1226,11 +1150,11 @@ namespace algorithms {
 			return s;
 		}
 
-		Solution RegretInsertion(Solution s, const std::vector<double>& arguments)
+		Solution RegretInsertion(Solution s, const std::array<double, 2>& arguments)
 		{
 			std::random_device rd;
 			RandLib randlib(rd());
-			double kappa = arguments[randlib.randint(0, arguments.size() - 1)];
+			int kappa = randlib.randint(2,inst.vehicles.size());
 			std::copy(s.rejected.begin(), s.rejected.end(), std::back_inserter(s.removed));
 			s.rejected.clear();
 			while (!s.removed.empty()) {
@@ -1269,7 +1193,7 @@ namespace algorithms {
 						int counter = 1;
 						for (auto vehicleMovePair : RouteBestMove) {
 							if (counter > kappa) break;
-							regret = regret + vehicleMovePair.second.cost - RouteBestMove[0].second.cost;
+							regret+=vehicleMovePair.second.cost - RouteBestMove[0].second.cost;
 							counter++;
 						}
 						if (max_regret < regret) {
@@ -1291,17 +1215,8 @@ namespace algorithms {
 				}
 				else {
 					Route new_route = s.routes[bestMove.vehicle];
-					if (bestMove.cs_pos.size()) {
-						for (const auto& [station, node] : bestMove.cs_pos) {
-							int index = new_route.node_indices[node] + 1;
-							std::for_each(new_route.path.begin() + index, new_route.path.end(), [&new_route](Node* node)
-								{new_route.node_indices[node]++; }
-							);
-							new_route.insertNode(inst.nodes[station->id - 1], index);
-							new_route.node_indices[inst.nodes[station->id - 1]] = index;
-							inst.operationsSaved++;
-						}
-					}
+					for (const auto& [station, node] : bestMove.cs_pos)
+						new_route.insertNode(inst.nodes[station->id - 1], new_route.node_indices[node] + 1);
 					new_route.insertRequest(minUser, bestMove.origin_pos + 1, bestMove.dest_pos + 1);
 					new_route.updateMetrics(true);
 					if (!new_route.isFeasible()) std::cout << "Infeasible Insertion?\n";
@@ -1341,9 +1256,9 @@ namespace algorithms {
 				for (Request* req : assigned) {
 					Route route = s.routes[assignment[req->origin->id]];
 					std::pair<size_t, size_t> position = route.getRequestPosition(req);
-					route.path[position.first] = removedRequest->origin;
-					route.path[position.second] = removedRequest->destination;
-					inst.operationsSaved++;
+					route.removeRequest(req);
+					route.insertRequest(removedRequest, position.first, position.second - 1);
+					
 					route.updateMetrics();
 					if (route.isFeasible()) {
 						Solution intermediate = s;
@@ -1360,20 +1275,12 @@ namespace algorithms {
 						}
 						if (min_cost != DBL_MAX) {
 							Route new_route = intermediate.routes[bestMove.vehicle];
-							if (bestMove.cs_pos.size()) {
-								for (const auto& [station, node] : bestMove.cs_pos) {
-									int index = new_route.node_indices[node] + 1;
-									std::for_each(new_route.path.begin() + index, new_route.path.end(),
-										[&new_route](Node* node) { new_route.node_indices[node]++; }
-									);
-									new_route.insertNode(inst.nodes[station->id - 1],index);
-									new_route.node_indices[inst.nodes[station->id - 1]] = index;
-									inst.operationsSaved++;
-								}
-							}
+							for (const auto& [station, node] : bestMove.cs_pos) 
+								new_route.insertNode(inst.nodes[station->id - 1], new_route.node_indices[node] + 1);
 							new_route.insertRequest(req, bestMove.origin_pos + 1, bestMove.dest_pos + 1);
-							new_route.updateMetrics();
+							new_route.updateMetrics(true);
 							assignment[req->origin->id] = new_route.vehicle;
+							assignment[removedRequest->origin->id] = route.vehicle;
 							if (!new_route.isFeasible()) std::cout << "Infeasible Insertion?\n";
 							intermediate.addRoute(new_route);
 							s = intermediate;
