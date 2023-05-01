@@ -7,9 +7,12 @@
 
 Solution::Solution() :total_travel_distance(0.0),total_excess_ride_time(0.0){
     for (CStation* s : inst.charging_stations) stationVisits[s] = 0;
+    rejected.reserve(inst.requests.size());
+    removed.reserve(inst.requests.size());
+
 }
 
-double Solution::objectiveValue() const
+double Solution::objectiveValue() const noexcept
 {
     return 0.75*total_travel_distance+0.25*total_excess_ride_time+inst.rejectedRequestPenalties[rejected.size()];
 }
@@ -25,7 +28,7 @@ void Solution::addRoute(const Route& r)
     total_travel_distance+=r.travel_distance;
     total_excess_ride_time+=r.excess_ride_time;
     for (const auto& [station, amount] : r.desiredAmount) stationVisits[station]++;
-    routes[r.vehicle] = r;
+    routes[r.vehicle] = std::move(r);
 }
 
 void Solution::deleteEmptyRoutes()

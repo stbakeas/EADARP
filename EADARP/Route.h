@@ -7,7 +7,7 @@
 #include "RandLib.h"
 #include "EAV.h"
 
-double dbl_round(long double number, int precision);
+double dbl_round(long double number, int precision) noexcept;
 
 class Route {
 public:
@@ -32,10 +32,10 @@ public:
 	std::vector<std::pair<int, int>> natural_sequences;
 	double travel_distance, excess_ride_time;
 	Route() {};
-	Route(EAV* vehicle);
+	explicit Route(EAV* vehicle);
 	inline bool isEmpty() { return !path.size(); } //Check if the route contains absolutely no nodes
-	inline bool hasNoRequests() { return requests.empty(); } // Check if the route contains no requests.
-	inline bool isFeasible() { return batteryFeasible && capacityFeasible && timeFeasible; }
+	inline bool hasNoRequests() noexcept { return requests.empty(); }  // Check if the route contains no requests.
+	inline bool isFeasible() noexcept { return batteryFeasible && capacityFeasible && timeFeasible; }
 	bool isInsertionCapacityFeasible(Request* request, int i, int j) const;
 	bool isInsertionBatteryFeasible(Request* request, int i, int j,bool increaseChargingTime);
 	bool isInsertionTimeFeasible(Request* request, int i, int j);

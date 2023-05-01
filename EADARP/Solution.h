@@ -14,8 +14,8 @@ public:
 	std::vector<Request*> rejected, removed;
 	std::unordered_map<CStation*, unsigned int> stationVisits;
 	double total_travel_distance, total_excess_ride_time;
-
-    double objectiveValue() const;
+	
+    double objectiveValue() const noexcept;
 
 
 	/**

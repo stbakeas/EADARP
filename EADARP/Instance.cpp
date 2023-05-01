@@ -59,12 +59,12 @@ void Instance::RandomGenerator(int request_num, int vehicles_num, int stations_n
         if (verified<=floor(request_num/2)) {
             node1->earliest = randlib.randint(360, 1320);
             node1->latest = node1->earliest+randlib.randint(15,30);
-            node2->earliest = 0;
+            node2->earliest = 0.0;
             node2->latest = planning_horizon;
             verified++;
         }
         else {
-            node1->earliest = 0;
+            node1->earliest = 0.0;
             node1->latest = planning_horizon;
             node2->earliest = randlib.randint(0, 720);
             node2->latest = node2->earliest + randlib.randint(15,30);

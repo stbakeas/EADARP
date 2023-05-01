@@ -7,11 +7,10 @@ double RandLib::rand()
 
 int RandLib::randint(int a, int b)
 {
-	int ub = a + std::round((b - a) * rand());
-	return std::min(b, ub);
+	return std::min(b, a + (int)std::round((b - a) * rand()));
 }
 
-double RandLib::unifrnd(double a, double b) {
+double RandLib::unifrnd(double a, double b){
 	return a + (b - a) * rand();
 }
 

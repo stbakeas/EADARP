@@ -9,7 +9,7 @@ public:
 	int randint(int, int); //discrete uniform distribution in [a,b]
 	double unifrnd(double, double); //continuous uniform distribution in [a,b]
 
-	RandLib(int sd):
+	explicit RandLib(int sd):
 		Seed(sd)
 	{ this->Gen.seed(sd); }
 	RandLib() {};

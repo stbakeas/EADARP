@@ -14,11 +14,11 @@ public:
 	
 
 	Node() {};
-	Node(int id);
-	bool isOrigin();
-	bool isDestination();
-	bool isChargingStation();
-	bool isStartingDepot();
-	bool isEndingDepot();
+	explicit Node(int id);
+	bool isOrigin() noexcept;
+	bool isDestination() noexcept;
+	bool isChargingStation() noexcept;
+	bool isStartingDepot() noexcept;
+	bool isEndingDepot() noexcept;
 	~Node() {};
 };
