@@ -23,11 +23,11 @@ void Solution::addRoute(const Route& r)
     if (routes.contains(r.vehicle)) { 
         total_travel_distance-=routes[r.vehicle].travel_distance;
         total_excess_ride_time-=routes[r.vehicle].excess_ride_time;
-        for (const auto& [station,amount] : routes[r.vehicle].desiredAmount) stationVisits[station]--;
+        for (const auto& [station,amount] : routes[r.vehicle].departureBatteryLevel) stationVisits[station]--;
     }
     total_travel_distance+=r.travel_distance;
     total_excess_ride_time+=r.excess_ride_time;
-    for (const auto& [station, amount] : r.desiredAmount) stationVisits[station]++;
+    for (const auto& [station, amount] : r.departureBatteryLevel) stationVisits[station]++;
     routes[r.vehicle] = std::move(r);
 }
 
@@ -40,7 +40,7 @@ void Solution::deleteEmptyRoutes()
             ++it;
 }
 
-void Solution::Display(int i) {
+void Solution::Display(int i) const {
     if (i == 0) {
         for (auto my_route : routes) {
             printf ("%s%i%s%i%s","Route ID: ",my_route.first->id," with size ",my_route.second.path.size()," : ");
@@ -77,14 +77,14 @@ void Solution::AddDepots()
     }
 }
 
-double Solution::getInsertionCost(Request* r, const Position& p) {
+double Solution::getInsertionCost(Request* r, const Position& p) const {
     
-    Route test_route = routes[p.vehicle];
+    Route test_route = routes.at(p.vehicle);
     for (const auto& [station, node] : p.cs_pos) test_route.insertNode(inst.nodes[station->id - 1], test_route.node_indices[node] + 1);
     test_route.insertRequest(r, p.origin_pos + 1, p.dest_pos + 1);
     test_route.updateMetrics();
-    return !test_route.isFeasible() ? DBL_MAX : 0.75 * (test_route.travel_distance - routes[p.vehicle].travel_distance)
-        + 0.25*(test_route.excess_ride_time - routes[p.vehicle].excess_ride_time);
+    return !test_route.isFeasible() ? DBL_MAX : 0.75 * (test_route.travel_distance - routes.at(p.vehicle).travel_distance)
+        + 0.25*(test_route.excess_ride_time - routes.at(p.vehicle).excess_ride_time);
 }
 
 

@@ -27,7 +27,7 @@ Instance::~Instance()
     
 }
 void Instance::RandomGenerator(int request_num, int vehicles_num, int stations_num, double max_latitude,
-    double max_longitude, double planning_horizon, int seed, float returnBatteryPercentage) {
+    double max_longitude, double planning_horizon, int seed, double returnBatteryPercentage) {
     RandLib randlib(seed);
     Horizon = planning_horizon;
     maximumCapacity = 4;
@@ -158,12 +158,12 @@ void Instance::RandomGenerator(int request_num, int vehicles_num, int stations_n
     Preprocessing();
 }
 
-void Instance::loadMalheiros(const std::string instance_file_name,float gamma,int seed) {
+void Instance::loadMalheiros(const std::string instance_file_name,double gamma) {
     Horizon = 1440;
     dischargeRate = 0.055;
     maximumBattery = 14.85;
     returnedBatteryPercentage = gamma;
-    RandLib randlib(seed);
+    maxVisitsPerStation = 1;
     std::ifstream file(instance_file_name);
 
     if (!file.is_open()) {
@@ -181,6 +181,7 @@ void Instance::loadMalheiros(const std::string instance_file_name,float gamma,in
     requests.reserve(requests_num);
 
     int stations_num=3;
+    charging_stations.reserve(3);
 
     nodes.reserve(2 * requests_num + 2 * vehicles_num + stations_num+2);
 
@@ -261,7 +262,7 @@ void Instance::loadMalheiros(const std::string instance_file_name,float gamma,in
         nodes.push_back(node_start);
         nodes.push_back(node_end);
 
-        vehicles.push_back(new EAV(2 * requests_num + i,total_capacity, maximumBattery,0.0, Horizon,maximumBattery,returnedBatteryPercentage));
+        vehicles.push_back(new EAV(2 * requests_num + i,total_capacity, maximumBattery,0.0, Horizon,maximumBattery,returnedBatteryPercentage*maximumBattery));
     }
 
     // Build all request nodes
@@ -322,7 +323,7 @@ void Instance::loadMalheiros(const std::string instance_file_name,float gamma,in
     Preprocessing();
 }
 
-void Instance::loadInstance(const std::string instance_file_name,float gamma) {
+void Instance::loadInstance(const std::string instance_file_name,double gamma) {
    
     std::ifstream file(instance_file_name);
 
@@ -487,6 +488,7 @@ void Instance::createSimilarityMatrix()
         }
     }
     similarity.resize(requests.size());
+    similarRequestsSorted.resize(requests.size());
     for (Request* r1 : requests) {
         similarity[r1->origin->id - 1].resize(requests.size());
         for (Request* r2 : requests) {
@@ -501,9 +503,17 @@ void Instance::createSimilarityMatrix()
             double normDist = (inst.getTravelTime(r1->origin, r2->origin) + inst.getTravelTime(r1->destination, r2->destination) - distances.first) /
                 (distances.second - distances.first);
             similarity[r1->origin->id - 1][r2->origin->id - 1] = normloadDiff + normtimeWindowRelatedness + normDist;
-
+            if (r1->origin->id!=r2->origin->id) similarRequestsSorted[r1->origin->id - 1].push_back(r2);
         }
+        std::sort(similarRequestsSorted[r1->origin->id - 1].begin(), similarRequestsSorted[r1->origin->id - 1].end(),
+            [&](const Request* req1, const Request* req2)
+            {
+                return similarity[r1->origin->id - 1][req1->origin->id - 1] <
+                       similarity[r1->origin->id - 1][req2->origin->id - 1];
+            }
+        );
     }
+    
 }
 
 void Instance::Preprocessing() {
@@ -620,7 +630,7 @@ double Instance::getTravelTime(Node* n1, Node* n2, bool costMode)
 
 double Instance::getFuelConsumption(Node* n1, Node* n2)
 {
-    return dischargeRate * inst.getTravelTime(n1, n2);
+    return dischargeRate * distanceMatrix[n1->id - 1][n2->id - 1];
 }
 
 bool Instance::isForbiddenArc(Node* n1, Node* n2) {

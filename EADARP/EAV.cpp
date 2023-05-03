@@ -9,11 +9,3 @@ EAV::EAV(int id, int capacity, double battery, double start_time, double end_tim
 	minBatteryUponReturn(minBatteryUponReturn),
 	initial_battery(initial_battery),
 	acquisition_cost(battery){}
-
-bool EAV::operator==(const EAV& a) const {
-	return this->id == a.id;
-}
-
-bool EAV::operator<(const EAV& a) const {
-	return this->id < a.id;
-};

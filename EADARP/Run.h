@@ -1,6 +1,5 @@
 #pragma once
 #include "Solution.h"
-#include <unordered_set>
 
 class Run
 {

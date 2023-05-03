@@ -5,7 +5,7 @@ double RandLib::rand()
 	return rand2(Gen);
 }
 
-int RandLib::randint(int a, int b)
+int RandLib::randint(int a, int b) 
 {
 	return std::min(b, a + (int)std::round((b - a) * rand()));
 }

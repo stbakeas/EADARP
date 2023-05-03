@@ -15,10 +15,10 @@ public:
 
 	Node() {};
 	explicit Node(int id);
-	bool isOrigin() noexcept;
-	bool isDestination() noexcept;
-	bool isChargingStation() noexcept;
-	bool isStartingDepot() noexcept;
-	bool isEndingDepot() noexcept;
+	bool isOrigin() const noexcept;
+	bool isDestination() const noexcept;
+	bool isChargingStation() const noexcept;
+	bool isStartingDepot() const noexcept;
+	bool isEndingDepot() const noexcept;
 	~Node() {};
 };

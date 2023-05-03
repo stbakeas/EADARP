@@ -15,7 +15,6 @@ public:
 	bool batteryFeasible;
 	bool capacityFeasible;
 	bool timeFeasible;
-	bool adaptiveCharging;
 	ChargingPolicy policy;
 	std::vector<Request*> requests;
 	std::unordered_map<Node*, int> node_indices;
@@ -23,7 +22,7 @@ public:
 	std::vector<Node*> path;
 	std::vector<double> start_of_service_times;
 	std::vector<double> waiting_times;
-	std::unordered_map<CStation*, double> desiredAmount;
+	std::unordered_map<CStation*, double> departureBatteryLevel;
 	std::vector<int> loads;
 	//Version proposed by Savelsbergh (1995) for the PDPTW
 	std::vector<double> FTS;
@@ -53,7 +52,7 @@ public:
 	/**
 	 * Delete charging stations in which the vehicle does not stay there at all.
 	 */
-	void deleteRedundantChargingStations();
+	bool deleteRedundantChargingStations();
 	void computeChargingTime(int nodePosition);
 	inline void computeLoad(int i);
 	void computeStartOfServiceTime(int i);

@@ -14,26 +14,11 @@ struct Position {
 	Position() {};
 	~Position() {};
 
-	Position(EAV* vehicle, int origin_pos, int dest_pos, const std::vector<std::pair<CStation*, Node*>>& cs_pos):
+	Position(EAV* vehicle, int origin_pos, int dest_pos):
 		vehicle(vehicle),
 		origin_pos(origin_pos),
 		dest_pos(dest_pos),
-		cs_pos(cs_pos),
 		cost(0.0){}
-	
-
-	bool operator<(const Position& a) {
-		if (this->vehicle->id < a.vehicle->id) return true;
-		else if (this->vehicle->id > a.vehicle->id) return false;
-		else {
-			if (this->origin_pos < a.origin_pos) return true;
-			else if (this->origin_pos > a.origin_pos) return false;
-			else {
-				if (this->dest_pos < a.dest_pos) return true;
-				else return false;
-			}
-		}
-	}
 
 	std::ostream& operator<<(std::ostream& os) {
 		os << "(" << this->vehicle->id << " , " << this->origin_pos << " , " << this->dest_pos << ")";

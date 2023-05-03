@@ -44,6 +44,7 @@ public:
     std::vector<CStation*> charging_stations;
     std::vector<std::vector<double>> distanceMatrix;
     std::vector<std::vector<double>> similarity;
+    std::vector<std::vector<Request*>> similarRequestsSorted;
     std::vector<std::vector<int>> forbiddenArcs;
     int numberOfDepots;
     unsigned int maxVisitsPerStation;
@@ -61,10 +62,10 @@ public:
     static Instance& getUnique();
 
     
-    void loadMalheiros(const std::string instance_file_name,float gamma, int seed);
-    void loadInstance(const std::string instance_file_name,float gamma);
+    void loadMalheiros(const std::string instance_file_name,double gamma);
+    void loadInstance(const std::string instance_file_name,double gamma);
     void RandomGenerator(int request_num, int vehicles_num, int stations_num, double max_latitude,
-        double max_longitude, double planning_horizon, int seed, float returnBatteryPercentage);
+        double max_longitude, double planning_horizon, int seed, double returnBatteryPercentage);
 
     //Get the start depot associated with a vehicle
     Node* getDepot(EAV* vehicle,bool startingDepot);
