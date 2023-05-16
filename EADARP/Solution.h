@@ -24,7 +24,7 @@ public:
 	 *
 	 * @param r Route.
 	 */
-	void addRoute(const Route& r);
+	void addRoute(Route& r);
 
 	/**
 	 * Default constructor.
@@ -54,5 +54,5 @@ public:
 	/*
 	* Calculate the added cost of inserting a request in the solution
 	*/
-	double getInsertionCost(Request* r, const Position& p) const;
+	double getInsertionCost(Request* r, const Position& p);
 };

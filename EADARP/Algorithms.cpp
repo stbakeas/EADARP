@@ -11,29 +11,6 @@
 #include <unordered_set>
 #include <ctime>
 
-std::vector<std::vector<Node*>> PowerSet(const Route& route,const std::vector<size_t>& set, int n)
-{
-	bool* contain = new bool[n] {0};
-	std::vector<std::vector<Node*>> power_set;
-	power_set.reserve(pow(2, n));
-	std::vector<Node*> subset;
-	subset.reserve(n);
-	
-	for (int i = 0; i < n; i++)
-	{
-		contain[i] = 1;
-		// All permutation
-		do for (int j = 0; j < n; j++) if (contain[j]) subset.push_back(route.path[set[j]]);
-		while (std::prev_permutation(contain, contain + n));
-		if (subset.size()) { 
-			power_set.push_back(subset);
-			subset.resize(0);
-		}
-		
-	}
-	return power_set;
-}
-
 namespace algorithms {
 
     #define getName(VariableName) # VariableName
@@ -165,39 +142,36 @@ namespace algorithms {
 			int example_route_size = s.routes[available_vehicles[vehicle_index]].path.size();
 			int reserve_size = available_vehicles.size() * example_route_size * (example_route_size - 1) / 2;
 
-			std::vector<Position> strong_batset, weak_batset;
-			strong_batset.reserve(reserve_size);
-			weak_batset.reserve(reserve_size);
+			std::vector<Position> batset;
+			batset.reserve(reserve_size);
 			for (EAV* v : available_vehicles) {
+				Route route = s.routes[v];
+				route.BasicScheduling();
 				if (r->forbidden_vehicles.contains(v->id)) continue;
-				size_t length = s.routes[v].path.size() - 1;
+				size_t length = route.path.size() - 1;
 				bool batteryNotFound = true, timeAndCapacityFeasibleFound = false;
 				
-				for (size_t i = 0; i < length; ++i)
+				for (size_t i = 0; i < length; i++)
 				{
 				    
-					if (inst.isForbiddenArc(s.routes[v].path[i], r->origin)) continue;
+					if (inst.isForbiddenArc(route.path[i], r->origin)) continue;
 					
-					for (size_t j = i; j < length; ++j)
+					for (size_t j = i; j < length; j++)
 					{
-					    if (inst.isForbiddenArc(r->destination, s.routes[v].path[j + 1]))
+					    if (inst.isForbiddenArc(r->destination, route.path[j + 1]))
 					    	continue;
 						
 						if (i!=j) {
-							if (inst.isForbiddenArc(r->origin, s.routes[v].path[i + 1])) break;
-							if (inst.isForbiddenArc(s.routes[v].path[j], r->destination))
+							if (inst.isForbiddenArc(r->origin, route.path[i + 1])) break;
+							if (inst.isForbiddenArc(route.path[j], r->destination))
 								continue;
 						}
 						
-						if (s.routes[v].isInsertionCapacityFeasible(r, i, j) 
-							&& s.routes[v].isInsertionTimeFeasible(r, i, j)) {
+						if (route.isInsertionCapacityFeasible(r, i, j) 
+							&& route.isInsertionTimeFeasible(r, i, j)) {
 								timeAndCapacityFeasibleFound = true;
-								if (s.routes[v].isInsertionBatteryFeasible(r, i, j, false)) {
-									strong_batset.emplace_back(v, i, j);
-									batteryNotFound = false;
-								}
-								if (s.routes[v].isInsertionBatteryFeasible(r, i, j, true)) {
-									weak_batset.emplace_back(v, i, j);
+								if (route.isInsertionBatteryFeasible(r, i, j)) {
+									batset.emplace_back(v, i, j, nullptr, nullptr);
 									batteryNotFound = false;
 								}
 						}
@@ -207,63 +181,60 @@ namespace algorithms {
 				if (batteryNotFound && timeAndCapacityFeasibleFound  && includeCS) {
 
 					bool positionFound = false;
-					std::vector<size_t> zero_load_positions;
-					for (int i = s.routes[v].path.size() - 2; i>=0; i--) if (s.routes[v].loads[i] == 0) zero_load_positions.push_back(i);
-					std::vector<std::vector<Node*>> power_set = PowerSet(s.routes[v],zero_load_positions,std::min(zero_load_positions.size(),inst.charging_stations.size()));
-					for (auto subset : power_set) {
-						std::vector<std::pair<CStation*, Node*>> added_stations;
-						for (Node* zero_load_node : subset) {
-							int node_index = s.routes[v].node_indices[zero_load_node];
+					std::vector<Node*> zero_load_nodes;
+					for (int node_index = route.path.size() - 2; node_index != -1; node_index--)
+						if (!route.loads[node_index]) zero_load_nodes.push_back(route.path[node_index]);
+					for (Node* node:zero_load_nodes)
+					{
+						    int node_index = route.node_indices[node];
 							CStation* min_s = 
-								s.routes[v].findBestChargingStationAfter(node_index,s.stationVisits);
-							if (min_s != nullptr && 
-		                        s.routes[v].getAddedDistance(inst.nodes[min_s->id - 1], node_index) <= s.routes[v].FTS[node_index + 1]) {
-								Node* cs_node = inst.nodes[min_s->id - 1];
-								s.routes[v].insertNode(cs_node, node_index + 1);
-								s.routes[v].updateMetrics();
-								added_stations.emplace_back(min_s, zero_load_node);
-							}
-							
-						}
-						if (s.routes[v].isFeasible() && !added_stations.empty()) {
-							length = s.routes[v].path.size() - 1;
-							size_t firstStationIndex = s.routes[v].node_indices[added_stations[0].second]+1;
-							for (size_t i = firstStationIndex; i < length; ++i)
+								route.findBestChargingStationAfter(node_index,s.stationVisits);
+							if (min_s != nullptr &&
+								route.getAddedDistance(inst.nodes[min_s->id - 1],node_index) <= route.FTS[node_index + 1])
 							{
-								
-								if (inst.isForbiddenArc(s.routes[v].path[i], r->origin)) continue;
-								
-								for (size_t j = i; j <length; ++j)
-								{
-									if (inst.isForbiddenArc(r->destination, s.routes[v].path[j + 1]))
-											continue;
-									
-									if(i!=j) {
-										if (inst.isForbiddenArc(r->origin, s.routes[v].path[i + 1])) break;
-										if  (inst.isForbiddenArc(s.routes[v].path[j], r->destination))
-											continue;
-									}
-									if (s.routes[v].isInsertionCapacityFeasible(r, i, j) &&
-										s.routes[v].isInsertionTimeFeasible(r, i, j)&&
-										s.routes[v].isInsertionBatteryFeasible(r, i, j, true))
-									{	
-										weak_batset.emplace_back(v, i, j);
-										weak_batset.back().cs_pos = added_stations;
-										positionFound = true;
+								Node* cs_node = inst.nodes[min_s->id - 1];
+								route.insertNode(cs_node, node_index + 1);
+								route.updateMetrics();
+								route.BasicScheduling();
+								if (route.isFeasible()) {
+									length = route.path.size() - 1;
+									for (size_t i = 0; i < length; i++)
+									{
+
+										if (inst.isForbiddenArc(route.path[i], r->origin)) continue;
+
+										for (size_t j = i; j < length; j++)
+										{
+											if (inst.isForbiddenArc(r->destination, route.path[j + 1]))
+												continue;
+
+											if (i != j) {
+												if (inst.isForbiddenArc(r->origin, route.path[i + 1])) break;
+												if (inst.isForbiddenArc(route.path[j], r->destination))
+													continue;
+											}
+											if (route.isInsertionCapacityFeasible(r, i, j) &&
+												route.isInsertionTimeFeasible(r, i, j) &&
+												route.isInsertionBatteryFeasible(r, i, j))
+											{
+												batset.emplace_back(v, i, j,node,min_s);
+												positionFound = true;
+											}
+										}
 									}
 								}
+
+								
+								route.removeNode(route.node_indices[cs_node]);
+								route.updateMetrics();
+								if (positionFound) break;
 							}
-						}
-						for (const auto& [station,node]:added_stations) 
-							s.routes[v].removeNode(s.routes[v].node_indices[inst.nodes[station->id-1]]);
-						if (!added_stations.empty()) s.routes[v].updateMetrics();
-						if (positionFound) break;
 
 					}
 				}
 			}
 			
-			return strong_batset.empty()?weak_batset:strong_batset;
+			return batset;
 		}
 
 		Solution Init1() {
@@ -288,8 +259,8 @@ namespace algorithms {
 				}
 				if (min_cost != DBL_MAX) {
 					Route inserted_route = solution.routes[min_pos.vehicle];
-					for (const auto& [station, node] : min_pos.cs_pos) 
-						inserted_route.insertNode(inst.nodes[station->id - 1], inserted_route.node_indices[node] + 1);
+					if (min_pos.chargingStation != nullptr)
+						inserted_route.insertNode(inst.nodes[min_pos.chargingStation->id - 1],inserted_route.node_indices[min_pos.node_before_station]+1);
 					inserted_route.insertRequest(request, min_pos.origin_pos + 1, min_pos.dest_pos + 1);
 					inserted_route.updateMetrics(true);
 					solution.addRoute(inserted_route);
@@ -331,7 +302,6 @@ namespace algorithms {
 				Route route = s.routes[requestPosition[index].second.first];
 				route.removeRequest(requestPosition[index].first);
 				route.updateMetrics(true);
-				if (!route.isFeasible()) printf("Infeasible Removal? \n");
 				s.removed.push_back(requestPosition[index].first);
 				s.addRoute(route);
 				s.vehicleOfRequest.erase(requestPosition[index].first);
@@ -354,8 +324,6 @@ namespace algorithms {
 					Request* req = route.requests[randlib.randint(0, route.requests.size() - 1)];;
 					route.removeRequest(req);
 					route.updateMetrics(true);
-					if (route.isFeasible()){}
-					else printf("Infeasible Removal? \n");
 					s.removed.push_back(req);
 					s.addRoute(route);
 					s.vehicleOfRequest.erase(req);
@@ -452,9 +420,6 @@ namespace algorithms {
 					s.vehicleOfRequest.erase(removed_req);
 					random_route.removeRequest(removed_req);
 					random_route.updateMetrics(true);
-					if (!random_route.isFeasible()) { 
-						std::cout << "Infeasible Similarity Removal?\n"; 
-					}
 					s.addRoute(random_route);
 					removal_number--;
 				}
@@ -473,7 +438,6 @@ namespace algorithms {
 						Route route = s.routes[s.vehicleOfRequest[selectedRequest]];
 						route.removeRequest(selectedRequest);
 						route.updateMetrics(true);
-						if (!route.isFeasible()) printf("Infeasible Removal? \n");
 						similarRequests.erase(similarRequests.begin() + index);
 						s.addRoute(route);
 						s.removed.push_back(selectedRequest);
@@ -520,11 +484,10 @@ namespace algorithms {
 				}
 				else {
 					Route new_route = s.routes[bestMove.vehicle];
-					for (const auto& [station, node] : bestMove.cs_pos)
-						new_route.insertNode(inst.nodes[station->id - 1], new_route.node_indices[node] + 1);
+					if (bestMove.chargingStation != nullptr)
+						new_route.insertNode(inst.nodes[bestMove.chargingStation->id - 1],new_route.node_indices[bestMove.node_before_station]+1);
 					new_route.insertRequest(minUser, bestMove.origin_pos + 1, bestMove.dest_pos + 1);
 					new_route.updateMetrics(true);
-					if (!new_route.isFeasible()) std::cout << "Infeasible Insertion?\n";
 					s.removed.erase(std::remove(s.removed.begin(), s.removed.end(), minUser), s.removed.end());
 					s.vehicleOfRequest.try_emplace(minUser,bestMove.vehicle);
 					s.addRoute(new_route);
@@ -549,11 +512,10 @@ namespace algorithms {
 				if (feasibleMoves.size()) {
 					Position bestMove = feasibleMoves[randlib.randint(0,feasibleMoves.size()-1)];
 					Route new_route = s.routes[bestMove.vehicle];
-					for (const auto& [station, node] : bestMove.cs_pos)
-						new_route.insertNode(inst.nodes[station->id - 1], new_route.node_indices[node] + 1);
+					if (bestMove.chargingStation != nullptr)
+						new_route.insertNode(inst.nodes[bestMove.chargingStation->id - 1], new_route.node_indices[bestMove.node_before_station]+1);
 					new_route.insertRequest(request, bestMove.origin_pos + 1, bestMove.dest_pos + 1);
 					new_route.updateMetrics(true);
-					if (!new_route.isFeasible()) std::cout << "Infeasible Insertion?\n";
 					s.removed.erase(s.removed.begin() + index);
 					s.vehicleOfRequest.try_emplace(request,bestMove.vehicle);
 					s.addRoute(new_route);
@@ -622,11 +584,10 @@ namespace algorithms {
 				}
 				else {
 					Route new_route = s.routes[bestMove.vehicle];
-					for (const auto& [station, node] : bestMove.cs_pos)
-						new_route.insertNode(inst.nodes[station->id - 1], new_route.node_indices[node] + 1);
+					if (bestMove.chargingStation != nullptr)
+						new_route.insertNode(inst.nodes[bestMove.chargingStation->id - 1], new_route.node_indices[bestMove.node_before_station] + 1);
 					new_route.insertRequest(minUser, bestMove.origin_pos + 1, bestMove.dest_pos + 1);
 					new_route.updateMetrics(true);
-					if (!new_route.isFeasible()) std::cout << "Infeasible Insertion?\n";
 					s.removed.erase(std::remove(s.removed.begin(), s.removed.end(), minUser), s.removed.end());
 					s.addRoute(new_route);
 					s.vehicleOfRequest.try_emplace(minUser,bestMove.vehicle);
@@ -666,11 +627,10 @@ namespace algorithms {
 						}
 						if (min_cost != DBL_MAX) {
 							Route new_route = intermediate.routes[bestMove.vehicle];
-							for (const auto& [station, node] : bestMove.cs_pos) 
-								new_route.insertNode(inst.nodes[station->id - 1], new_route.node_indices[node] + 1);
+							if (bestMove.chargingStation != nullptr)
+								new_route.insertNode(inst.nodes[bestMove.chargingStation->id - 1], new_route.node_indices[bestMove.node_before_station] + 1);
 							new_route.insertRequest(req, bestMove.origin_pos + 1, bestMove.dest_pos + 1);
 							new_route.updateMetrics(true);
-							if (!new_route.isFeasible()) std::cout << "Infeasible Insertion?\n";
 							intermediate.addRoute(new_route);
 							intermediate.vehicleOfRequest.try_emplace(req,bestMove.vehicle);
 							s = std::move(intermediate);

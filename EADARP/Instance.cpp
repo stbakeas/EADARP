@@ -221,7 +221,7 @@ void Instance::loadMalheiros(const std::string instance_file_name,double gamma) 
         {
             file >> vehicle_capacities[i];
         }
-        int total_capacity = ceil(std::accumulate(vehicle_capacities.begin(), vehicle_capacities.end(), 0)/2);
+        int total_capacity = std::accumulate(vehicle_capacities.begin(), vehicle_capacities.end(), 0)/2;
         if (total_capacity > maximumCapacity) maximumCapacity = total_capacity;
 
         Node* node_start = new Node(2 * requests_num + 2 + i);
@@ -278,7 +278,7 @@ void Instance::loadMalheiros(const std::string instance_file_name,double gamma) 
             if (!node->maximum_travel_time) node->maximum_travel_time = DBL_MAX;
             std::array<int,4> loads;
             for (int i = 0; i < loads.size(); i++) file >> loads[i];
-            node->load = std::accumulate(loads.begin(), loads.end(), 0.0);
+            node->load = std::accumulate(loads.begin(), loads.end(), 0);
 
             file >> node->earliest;
             file >> node->latest;
@@ -518,18 +518,18 @@ void Instance::createSimilarityMatrix()
 
 void Instance::Preprocessing() {
 
-   
-    for (int i = 0; i < requests.size(); i++) {
-        if (dbl_round(nodes[i]->latest-1440.0,2)<0.0) {
+    int n = requests.size();
+    for (int i = 0; i < n; i++) {
+        if (nodes[i]->latest!=1440.0) {
 
-            nodes[i + requests.size()]->earliest = std::max(0.0, nodes[i]->earliest + nodes[i]->service_duration +
-                getTravelTime(nodes[i], nodes[i + requests.size()]));
-            nodes[i + requests.size()]->latest = std::min(Horizon, nodes[i]->latest + nodes[i]->service_duration + nodes[i]->maximum_travel_time);
+            nodes[i + n]->earliest = std::max(0.0, nodes[i]->earliest + nodes[i]->service_duration +
+                getTravelTime(nodes[i], nodes[i + n]));
+            nodes[i + n]->latest = std::min(Horizon, nodes[i]->latest + nodes[i]->service_duration + nodes[i]->maximum_travel_time);
 
         }
         else {
-            nodes[i]->earliest = std::max(0.0, nodes[i + requests.size()]->earliest - nodes[i]->service_duration - nodes[i]->maximum_travel_time);
-            nodes[i]->latest = std::min(Horizon, nodes[i + requests.size()]->latest - nodes[i]->service_duration - inst.getTravelTime(nodes[i], nodes[i + requests.size()]));
+            nodes[i]->earliest = std::max(0.0, nodes[i + n]->earliest - nodes[i]->service_duration - nodes[i]->maximum_travel_time);
+            nodes[i]->latest = std::min(Horizon, nodes[i + n]->latest - nodes[i]->service_duration - inst.getTravelTime(nodes[i], nodes[i + n]));
         }
     }
 
@@ -554,8 +554,6 @@ void Instance::Preprocessing() {
     //Arc Elimination
     avgDistance = 0.0;
     int count = 0;
-
-    int n = inst.requests.size();
     size_t length = distanceMatrix.size();
     for (int i = 0; i < length; i++) {
         for (int j = 0; j <length; j++) {

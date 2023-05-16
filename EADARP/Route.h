@@ -36,15 +36,14 @@ public:
 	inline bool hasNoRequests() noexcept { return requests.empty(); }  // Check if the route contains no requests.
 	inline bool isFeasible() noexcept { return batteryFeasible && capacityFeasible && timeFeasible; }
 	bool isInsertionCapacityFeasible(Request* request, int i, int j) const;
-	bool isInsertionBatteryFeasible(Request* request, int i, int j,bool increaseChargingTime);
-	bool isInsertionTimeFeasible(Request* request, int i, int j);
+	bool isInsertionBatteryFeasible(Request* request, int i, int j);
+	bool isInsertionTimeFeasible(Request* request, size_t i, size_t j);
 	std::pair<size_t, size_t> getRequestPosition(const Request* r);
 	double getWaitingTime(int index);
 	double getRideTime(int index);
-	double getDuration(); //Get the route's total duration
 	double getAddedDistance(Node* node, int i) const; //For a single node
 	double getAddedDistance(Request* request, int i, int j) const; //For a request
-	double get_forward_time_slack(int i);
+	double getForwardTimeSlack(int i);
 	double get_modified_time_slack(int i);
 	CStation* findBestChargingStationAfter(int i, std::unordered_map<CStation*, unsigned int>& stationVisits);
 
@@ -78,12 +77,6 @@ public:
 	* Runtime: O(n^2)
 	*/
 	void LazyScheduling();
-
-	/*Input: Sequence of n nodes, Existing Schedule
-	* Output: Schedule that minimizes excess ride time, while not increasing time window violations
-	* Runtime: O(n^2)
-	*/
-	void RideTimeOrientedScheduling();
 
 	~Route() {};
 	

@@ -17,7 +17,7 @@ double Solution::objectiveValue() const noexcept
     return 0.75*total_travel_distance+0.25*total_excess_ride_time+inst.rejectedRequestPenalties[rejected.size()];
 }
 
-void Solution::addRoute(const Route& r)
+void Solution::addRoute(Route& r)
 {
     // In case we are updating the vehicle's route...
     if (routes.contains(r.vehicle)) { 
@@ -77,14 +77,36 @@ void Solution::AddDepots()
     }
 }
 
-double Solution::getInsertionCost(Request* r, const Position& p) const {
+double Solution::getInsertionCost(Request* r, const Position& p){
     
-    Route test_route = routes.at(p.vehicle);
-    for (const auto& [station, node] : p.cs_pos) test_route.insertNode(inst.nodes[station->id - 1], test_route.node_indices[node] + 1);
+    Route test_route = routes[p.vehicle];
+    if (p.chargingStation != nullptr)
+        test_route.insertNode(inst.nodes[p.chargingStation->id - 1],test_route.node_indices[p.node_before_station]+1);
     test_route.insertRequest(r, p.origin_pos + 1, p.dest_pos + 1);
-    test_route.updateMetrics();
-    return !test_route.isFeasible() ? DBL_MAX : 0.75 * (test_route.travel_distance - routes.at(p.vehicle).travel_distance)
-        + 0.25*(test_route.excess_ride_time - routes.at(p.vehicle).excess_ride_time);
+    test_route.battery.clear();
+    test_route.battery.resize(test_route.path.size());
+    test_route.battery[0] = p.vehicle->initial_battery;
+    for (int i = 1; i < test_route.path.size(); i++) {
+        test_route.computeBatteryLevel(i);
+        test_route.computeChargingTime(i);
+    }
+    test_route.BasicScheduling();
+    test_route.LazyScheduling();
+    test_route.excess_ride_time = 0.0;
+    for (int i = 1; i < test_route.path.size()-1; i++) {
+        
+        if (dbl_round(test_route.getRideTime(i)- test_route.path[i]->maximum_travel_time,3)>0.0) {
+            test_route.timeFeasible = false;
+            break;
+        }
+
+        if (test_route.path[i]->isOrigin())
+            test_route.excess_ride_time += test_route.getRideTime(i) - inst.getTravelTime(test_route.path[i], inst.getRequest(test_route.path[i])->destination);
+
+    }
+    //test_route.updateMetrics();
+    return !test_route.timeFeasible ? DBL_MAX : 0.75 * (test_route.travel_distance - routes[p.vehicle].travel_distance)
+        + 0.25*(test_route.excess_ride_time - routes[p.vehicle].excess_ride_time);
 }
 
 
