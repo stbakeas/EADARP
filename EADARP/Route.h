@@ -20,14 +20,9 @@ public:
 	std::unordered_map<Node*, int> node_indices;
 	EAV* vehicle;
 	std::vector<Node*> path;
-	std::vector<double> start_of_service_times;
-	std::vector<double> waiting_times;
+	std::vector<double> base_schedule,base_waiting_times,late_schedule,late_waiting_times,FTS,battery;
 	std::unordered_map<CStation*, double> departureBatteryLevel;
 	std::vector<int> loads;
-	//Version proposed by Savelsbergh (1995) for the PDPTW
-	std::vector<double> FTS;
-
-	std::vector<double> battery;
 	std::vector<std::pair<int, int>> natural_sequences;
 	double travel_distance, excess_ride_time;
 	Route() {};
@@ -35,14 +30,14 @@ public:
 	inline bool isEmpty() { return !path.size(); } //Check if the route contains absolutely no nodes
 	inline bool hasNoRequests() noexcept { return requests.empty(); }  // Check if the route contains no requests.
 	inline bool isFeasible() noexcept { return batteryFeasible && capacityFeasible && timeFeasible; }
-	bool isInsertionCapacityFeasible(Request* request, int i, int j) const;
-	bool isInsertionBatteryFeasible(Request* request, int i, int j);
-	bool isInsertionTimeFeasible(Request* request, size_t i, size_t j);
+	bool isInsertionCapacityFeasible(const Request* request, int i, int j) const;
+	bool isInsertionBatteryFeasible(const Request* request, int i, int j);
+	bool isInsertionTimeFeasible(const Request* request, size_t i, size_t j);
 	std::pair<size_t, size_t> getRequestPosition(const Request* r);
-	double getWaitingTime(int index);
+	void computeWaitingTime(int index,bool base=true);
 	double getRideTime(int index);
 	double getAddedDistance(Node* node, int i) const; //For a single node
-	double getAddedDistance(Request* request, int i, int j) const; //For a request
+	double getAddedDistance(const Request* request, int i, int j) const; //For a request
 	double getForwardTimeSlack(int i);
 	double get_modified_time_slack(int i);
 	CStation* findBestChargingStationAfter(int i, std::unordered_map<CStation*, unsigned int>& stationVisits);
@@ -52,15 +47,15 @@ public:
 	 * Delete charging stations in which the vehicle does not stay there at all.
 	 */
 	bool deleteRedundantChargingStations();
-	void computeChargingTime(int nodePosition);
+	void computeChargingTime(int stationPosition);
 	inline void computeLoad(int i);
-	void computeStartOfServiceTime(int i);
+	void computeStartOfServiceTime(int i,bool base=true);
 	void computeBatteryLevel(int i);
 	void computeTotalCost(bool debug);
 	void insertNode(Node* node, int index);
 	void insertRequest(Request* r, int i, int j);
 	void removeNode(int index);
-	void removeRequest(Request* request);
+	void removeRequest(const Request* request);
 	void storeNaturalSequences();
 	void updateMetrics(bool debug=false); //Computes all necessary metrics 
 

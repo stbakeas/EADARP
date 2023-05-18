@@ -48,10 +48,10 @@ void Solution::Display(int i) const {
             for (size_t i = 0; i < length - 1; i++)
             {
                 printf("%s%i%s%f%s%f%s","(",
-                    my_route.second.path.at(i)->id, ",", dbl_round(my_route.second.battery.at(i),3), "kWh,", dbl_round(my_route.second.start_of_service_times.at(i),2), ")->");
+                    my_route.second.path.at(i)->id, ",", dbl_round(my_route.second.battery.at(i),3), "kWh,", dbl_round(my_route.second.late_schedule.at(i),2), ")->");
             }
             printf("%s%i%s%f%s%f%s",
-            "(" , my_route.second.path.back()->id , "," , dbl_round(my_route.second.battery.back(), 3), "kWh," , dbl_round(my_route.second.start_of_service_times.back(), 2), ")");
+            "(" , my_route.second.path.back()->id , "," , dbl_round(my_route.second.battery.back(), 3), "kWh," , dbl_round(my_route.second.late_schedule.back(), 2), ")");
             printf("\n\n");
         }
         for (Request* request : rejected) {
@@ -86,25 +86,25 @@ double Solution::getInsertionCost(Request* r, const Position& p){
     test_route.battery.clear();
     test_route.battery.resize(test_route.path.size());
     test_route.battery[0] = p.vehicle->initial_battery;
-    for (int i = 1; i < test_route.path.size(); i++) {
-        test_route.computeBatteryLevel(i);
-        test_route.computeChargingTime(i);
+
+    for (int i = 1; i < test_route.path.size(); i++) { 
+        if (test_route.path[i]->isChargingStation()) 
+            test_route.computeChargingTime(i);
+        test_route.computeBatteryLevel(i); 
     }
+        
     test_route.BasicScheduling();
     test_route.LazyScheduling();
     test_route.excess_ride_time = 0.0;
-    for (int i = 1; i < test_route.path.size()-1; i++) {
-        
-        if (dbl_round(test_route.getRideTime(i)- test_route.path[i]->maximum_travel_time,3)>0.0) {
+    for (Request* req : test_route.requests) {
+        int index = test_route.node_indices[req->origin];
+        double ride_time = test_route.getRideTime(index);
+        if (dbl_round(ride_time - test_route.path[index]->maximum_travel_time, 3) > 0.0) {
             test_route.timeFeasible = false;
             break;
         }
-
-        if (test_route.path[i]->isOrigin())
-            test_route.excess_ride_time += test_route.getRideTime(i) - inst.getTravelTime(test_route.path[i], inst.getRequest(test_route.path[i])->destination);
-
+        test_route.excess_ride_time += ride_time - inst.getTravelTime(req->origin,req->destination);
     }
-    //test_route.updateMetrics();
     return !test_route.timeFeasible ? DBL_MAX : 0.75 * (test_route.travel_distance - routes[p.vehicle].travel_distance)
         + 0.25*(test_route.excess_ride_time - routes[p.vehicle].excess_ride_time);
 }

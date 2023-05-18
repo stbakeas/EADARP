@@ -118,7 +118,7 @@ void ParameterTuning(int numberOfRunsPerInstance) {
 }
 
 int main(){
-	inst.loadInstance("Cordeau-EADARP/a2-16.txt",0.7);
+	inst.loadInstance("Cordeau-EADARP/a5-50.txt",0.7);
 	Run run = algorithms::ALNS(algorithms::details::Init1(), 10000, INT_MAX, 0.05, 7, 0.1, 100, 0.5);
 	return EXIT_SUCCESS;
 }

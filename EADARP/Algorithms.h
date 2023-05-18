@@ -7,10 +7,6 @@
 
 namespace algorithms
 {
-	enum class NeighborChoice { BEST, FIRST, RANDOM, SMART};
-
-	typedef std::pair<Request*, EAV*> Assignment;
-
 	typedef void(*Heuristic)(Solution&, const std::array<double, 2>&);
 
 	struct Statistics {
@@ -34,7 +30,7 @@ namespace algorithms
     namespace details
     {
 
-		std::vector<Position> InsertionNeighborhood(Request* r, Solution& s,const std::vector<EAV*>& available_vehicles, bool includeCS = false);
+		std::vector<Position> InsertionNeighborhood(const Request* r, Solution& s,const std::vector<EAV*>& available_vehicles, bool includeCS = false);
 
         /**
          * Randomly selects a request and inserts it at its best position.
@@ -59,9 +55,7 @@ namespace algorithms
 		*/
 		void ZeroSplitRemoval(Solution& s, const std::array<double, 2>& arguments);
 
-		// Removal Ratio = 0
-		void EntireRouteRemoval(Solution& s, const std::array<double, 2>& arguments);
-
+		
 		//Empty
 		void GreedyInsertion(Solution& s, const std::array<double, 2>& arguments);
 
