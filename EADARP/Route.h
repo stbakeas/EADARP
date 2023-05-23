@@ -51,7 +51,7 @@ public:
 	inline void computeLoad(int i);
 	void computeStartOfServiceTime(int i,bool base=true);
 	void computeBatteryLevel(int i);
-	void computeTotalCost(bool debug);
+	void computeExcessRideTime();
 	void insertNode(Node* node, int index);
 	void insertRequest(Request* r, int i, int j);
 	void removeNode(int index);

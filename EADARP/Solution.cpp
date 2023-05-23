@@ -6,7 +6,7 @@
 #include <map>
 
 Solution::Solution() :total_travel_distance(0.0),total_excess_ride_time(0.0){
-    for (CStation* s : inst.charging_stations) stationVisits[s] = 0;
+    for (CStation* s : inst.charging_stations) stationVisits.try_emplace(s, 0);
     rejected.reserve(inst.requests.size());
     removed.reserve(inst.requests.size());
 
@@ -28,7 +28,7 @@ void Solution::addRoute(Route& r)
     total_travel_distance+=r.travel_distance;
     total_excess_ride_time+=r.excess_ride_time;
     for (const auto& [station, amount] : r.departureBatteryLevel) stationVisits[station]++;
-    routes[r.vehicle] = std::move(r);
+    routes[r.vehicle]=std::move(r);
 }
 
 void Solution::deleteEmptyRoutes()
@@ -70,8 +70,8 @@ void Solution::AddDepots()
         r.path[0]=inst.getDepot(v,1);
         r.path[1] =inst.getDepot(v,0);
         r.travel_distance += inst.getTravelTime(r.path[0], r.path[1]);
-        r.node_indices[r.path[0]] = 0;
-        r.node_indices[r.path[1]] = 1;
+        r.node_indices.try_emplace(r.path[0],0);
+        r.node_indices.try_emplace(r.path[1], 1);
         r.updateMetrics();
         addRoute(r);
     }
@@ -95,16 +95,7 @@ double Solution::getInsertionCost(Request* r, const Position& p){
         
     test_route.BasicScheduling();
     test_route.LazyScheduling();
-    test_route.excess_ride_time = 0.0;
-    for (Request* req : test_route.requests) {
-        int index = test_route.node_indices[req->origin];
-        double ride_time = test_route.getRideTime(index);
-        if (dbl_round(ride_time - test_route.path[index]->maximum_travel_time, 3) > 0.0) {
-            test_route.timeFeasible = false;
-            break;
-        }
-        test_route.excess_ride_time += ride_time - inst.getTravelTime(req->origin,req->destination);
-    }
+    test_route.computeExcessRideTime();
     return !test_route.timeFeasible ? DBL_MAX : 0.75 * (test_route.travel_distance - routes[p.vehicle].travel_distance)
         + 0.25*(test_route.excess_ride_time - routes[p.vehicle].excess_ride_time);
 }

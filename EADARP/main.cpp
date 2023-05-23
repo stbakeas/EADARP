@@ -70,10 +70,10 @@ void PerformanceEvaluation(int numberOfRunsPerInstance) {
 }
 
 void ParameterTuning(int numberOfRunsPerInstance) {
-	std::array<double, 3> gamma_values = {0.1,0.4,0.7};
+	std::array<double, 3> gamma_values = {0.7};
 	for (double gamma : gamma_values) {
 		const fs::path pathToShow("TrainingSet");
-		ofstream outputFile("Malheiros-" + to_string(dbl_round(gamma, 1)) + ".txt");
+		ofstream outputFile("Tuning-" + to_string(dbl_round(gamma, 1)) + ".txt");
 		printf("Battery Return Percentage = %f\n",gamma);
 		double omega = 0.1;
 		while (omega < 0.35) {
@@ -83,7 +83,7 @@ void ParameterTuning(int numberOfRunsPerInstance) {
 				const auto filenameStr = entry.path().filename().string();
 				std::cout << pathToShow.filename().string() + "/" + filenameStr << "\n";
 				if (entry.is_regular_file()) {
-					inst.loadMalheiros(pathToShow.filename().string() + "/" + filenameStr, gamma);
+					inst.loadInstance(pathToShow.filename().string() + "/" + filenameStr, gamma);
 					Solution best;
 					Solution initial = algorithms::details::Init1();
 					best.total_travel_distance = DBL_MAX;
@@ -92,21 +92,17 @@ void ParameterTuning(int numberOfRunsPerInstance) {
 					for (int i = 0; i < numberOfRunsPerInstance; i++) {
 						printf("%s%d\n", "Run ID: ", i);
 						Run run = algorithms::ALNS(initial, 10000, INT_MAX, 0.05, 7, omega, 100, 0.5);
-						if (run.best.rejected.empty()) {
-							successfulRuns++;
-							avgCost += run.best.objectiveValue();
-							if (run.best.objectiveValue() < best.objectiveValue()) {
-								best = run.best;
-								avg_best_iter += run.best_iter;
-							}
+						if (run.best.rejected.empty()) successfulRuns++;
+						avgCost += run.best.objectiveValue();
+						if (run.best.objectiveValue() < best.objectiveValue()) {
+							best = run.best;
+							avg_best_iter += run.best_iter;
 						}
 						avgRunTime += run.elapsed_seconds;
 					}
-					if (successfulRuns > 0) {
-						avgRunTime /= successfulRuns;
-						avg_best_iter /= successfulRuns;
-						avgCost /= successfulRuns;
-					}
+					avgRunTime /= 10;
+					avg_best_iter /= 10;
+					avgCost /= 10;
 					outputFile << filenameStr << "		" << successfulRuns << "/" << numberOfRunsPerInstance << "		" << best.objectiveValue() << "		" << avgCost << "		" << avgRunTime << "	" << avg_best_iter << "\n";
 					inst.~Instance();
 				}
@@ -118,7 +114,7 @@ void ParameterTuning(int numberOfRunsPerInstance) {
 }
 
 int main(){
-	inst.loadInstance("Cordeau-EADARP/a5-50.txt",0.7);
-	Run run = algorithms::ALNS(algorithms::details::Init1(), 10000, INT_MAX, 0.05, 7, 0.1, 100, 0.5);
+	inst.loadInstance("Cordeau-EADARP/a2-16.txt", 0.7);
+	Run run= algorithms::ALNS(algorithms::details::Init1(), 10000, INT_MAX, 0.05, 7, 0.3, 100, 0.5);
 	return EXIT_SUCCESS;
 }

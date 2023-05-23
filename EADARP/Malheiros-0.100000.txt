@@ -1,8 +1,0 @@
-Removal Percentage = 0.1
-
-a9-108hetIUY.txt		1/1		1252.5		1252.5		150.71	9227
-a9-72hetIUY.txt		1/1		815.712		815.712		52.65	6251
-a9-90hetIUY.txt		1/1		1061.86		1061.86		88.403	8684
-
-Removal Percentage = 0.15
-
