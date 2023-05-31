@@ -10,10 +10,10 @@ struct Position {
 	double cost;
 	CStation* chargingStation;
 	Node* node_before_station;
-	double addedDistance;
 
-	Position() {};
-	~Position() {};
+	Position():chargingStation(nullptr),cost(DBL_MAX)
+	{};
+	
 
 	Position(EAV* vehicle, int origin_pos, int dest_pos,Node* node_before_station,CStation* chargingStation):
 		vehicle(vehicle),
@@ -22,5 +22,6 @@ struct Position {
 		node_before_station(node_before_station),
 		chargingStation(chargingStation),
 		cost(0.0){}
+
 
 };

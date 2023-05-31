@@ -437,7 +437,8 @@ void Instance::loadInstance(const std::string instance_file_name,double gamma) {
         charging_stations[i]->recharge_rate = recharge_rate;
     }
     file >> dischargeRate;
-
+    for (int i = 0; i < 3; i++)
+        file >> bestKnownSolutionCost[i]; 
     file.close();
 
     createDistanceMatrix();
@@ -520,37 +521,20 @@ void Instance::Preprocessing() {
 
     int n = requests.size();
     for (int i = 0; i < n; i++) {
-        if (nodes[i]->latest!=1440.0) {
-
+        if (nodes[i]->latest != 1440.0) {
             nodes[i + n]->earliest = std::max(0.0, nodes[i]->earliest + nodes[i]->service_duration +
                 getTravelTime(nodes[i], nodes[i + n]));
             nodes[i + n]->latest = std::min(Horizon, nodes[i]->latest + nodes[i]->service_duration + nodes[i]->maximum_travel_time);
 
         }
         else {
+
             nodes[i]->earliest = std::max(0.0, nodes[i + n]->earliest - nodes[i]->service_duration - nodes[i]->maximum_travel_time);
             nodes[i]->latest = std::min(Horizon, nodes[i + n]->latest - nodes[i]->service_duration - inst.getTravelTime(nodes[i], nodes[i + n]));
         }
     }
-
-    for (EAV* v : inst.vehicles) {
-        Node* start_depot = inst.getDepot(v, "start");
-        Node* end_depot = inst.getDepot(v, "end");
-        double min_quantity = DBL_MAX;
-        for (int i = 0; i < 2 * requests.size(); i++) {
-            double quantity = nodes[i]->earliest - inst.getTravelTime(start_depot, nodes[i]);
-            if (min_quantity > quantity) min_quantity = quantity;
-        }
-        v->start_time = std::max(v->start_time, min_quantity);
-        double max_quantity = -DBL_MAX;
-        for (int i = 0; i < 2 * requests.size(); i++) {
-            double quantity = nodes[i]->latest + nodes[i]->service_duration + inst.getTravelTime(nodes[i], end_depot);
-            if (max_quantity < quantity) max_quantity = quantity;
-        }
-        v->end_time = std::min(v->end_time, max_quantity);
-        
-    }
    
+
     //Arc Elimination
     avgDistance = 0.0;
     int count = 0;

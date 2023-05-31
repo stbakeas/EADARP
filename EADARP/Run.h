@@ -9,5 +9,5 @@ public:
 	unsigned int best_iter;
 	double elapsed_seconds;
 	Run() {};
-	~Run() {};
+	~Run()=default;
 };

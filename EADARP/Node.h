@@ -20,5 +20,5 @@ public:
 	bool isChargingStation() const noexcept;
 	bool isStartingDepot() const noexcept;
 	bool isEndingDepot() const noexcept;
-	~Node() {};
+	~Node()=default;
 };

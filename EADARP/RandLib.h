@@ -13,6 +13,5 @@ public:
 		Seed(sd)
 	{ this->Gen.seed(sd); }
 	RandLib() {};
-	~RandLib() {};
 
 };

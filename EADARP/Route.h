@@ -11,11 +11,9 @@ double dbl_round(long double number, int precision) noexcept;
 
 class Route {
 public:
-	enum class ChargingPolicy{FULL,MINIMAL,CONSERVATIVE};
 	bool batteryFeasible;
 	bool capacityFeasible;
 	bool timeFeasible;
-	ChargingPolicy policy;
 	std::vector<Request*> requests;
 	std::unordered_map<Node*, int> node_indices;
 	EAV* vehicle;
@@ -25,8 +23,11 @@ public:
 	std::vector<int> loads;
 	std::vector<std::pair<int, int>> natural_sequences;
 	double travel_distance, excess_ride_time;
-	Route() {};
+
+	Route();
 	explicit Route(EAV* vehicle);
+
+	void PartialCopy(const Route& route);
 	inline bool isEmpty() { return !path.size(); } //Check if the route contains absolutely no nodes
 	inline bool hasNoRequests() noexcept { return requests.empty(); }  // Check if the route contains no requests.
 	inline bool isFeasible() noexcept { return batteryFeasible && capacityFeasible && timeFeasible; }
@@ -51,20 +52,19 @@ public:
 	inline void computeLoad(int i);
 	void computeStartOfServiceTime(int i,bool base=true);
 	void computeBatteryLevel(int i);
-	void computeExcessRideTime();
+	void computeExcessRideTime(bool debug);
 	void insertNode(Node* node, int index);
 	void insertRequest(Request* r, int i, int j);
 	void removeNode(int index);
 	void removeRequest(const Request* request);
 	void storeNaturalSequences();
 	void updateMetrics(bool debug=false); //Computes all necessary metrics 
-
 	
 	/*Input: A sequence of n nodes
 	* Output: Schedule that minimizes time window violations
 	* Runtime: O(n)
 	*/
-	void BasicScheduling();
+	void BasicScheduling(bool debug);
 
 	/* Input: Sequence of n nodes, Existing Schedule
 	* Output: Schedule that minimizes maximum ride time constraint violations, 
@@ -73,6 +73,6 @@ public:
 	*/
 	void LazyScheduling();
 
-	~Route() {};
+	~Route()=default;
 	
 };

@@ -22,7 +22,7 @@ namespace algorithms
 
 	int RouletteWheelSelection(const std::vector<Statistics>& stats, double weightSum,RandLib& randlib);
 
-	Run ALNS(const Solution& initial, unsigned int max_iterations, int max_seconds, double temperature_control,
+	Run ALNS(const Solution& initial,std::array<std::vector<Statistics>,2> stats,unsigned int max_iterations, double temperature_control,
 		double removalRandomness,double removalPercentage, int segment_size,double reaction_factor);
 
 	inline bool SimulatedAnnealingAcceptanceCriterion(const Solution& candidate,const Solution& incumbent, double current_temperature,RandLib& randlib);
@@ -59,10 +59,14 @@ namespace algorithms
 		//Empty
 		void GreedyInsertion(Solution& s, const std::array<double, 2>& arguments);
 
+		void CachedGreedyInsertion(Solution& s, const std::array<double, 2>& arguments);
+
 		/*
 		* Regret Degree = 0
 		*/
 		void RegretInsertion(Solution& s, const std::array<double, 2>& arguments);
+
+		void CachedRegretInsertion(Solution& s, const std::array<double, 2>& arguments);
 
 		void RandomInsertion(Solution& s, const std::array<double, 2>& arguments);
 

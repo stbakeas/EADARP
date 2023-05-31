@@ -7,7 +7,7 @@ double RandLib::rand()
 
 int RandLib::randint(int a, int b) 
 {
-	return std::min(b, a + (int)std::round((b - a) * rand()));
+	return std::min(b, a + static_cast<int>(std::round((b - a) * rand())));
 }
 
 double RandLib::unifrnd(double a, double b){

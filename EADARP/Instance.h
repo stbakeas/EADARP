@@ -46,6 +46,7 @@ public:
     std::vector<std::vector<double>> similarity;
     std::vector<std::vector<Request*>> similarRequestsSorted;
     std::vector<std::vector<int>> forbiddenArcs;
+    std::array<double, 3> bestKnownSolutionCost;
     int numberOfDepots;
     unsigned int maxVisitsPerStation;
     double Horizon;

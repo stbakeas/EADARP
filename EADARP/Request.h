@@ -11,5 +11,5 @@ public:
 	std::unordered_set<int> forbidden_vehicles;
 	Request() {};
 	Request(Node* origin, Node* destination);
-	~Request() {};
+	~Request()=default;
 };

@@ -6,9 +6,11 @@
 #include <map>
 
 Solution::Solution() :total_travel_distance(0.0),total_excess_ride_time(0.0){
-    for (CStation* s : inst.charging_stations) stationVisits.try_emplace(s, 0);
+    for (CStation* s : inst.charging_stations) stationVisits.emplace(s, 0);
     rejected.reserve(inst.requests.size());
     removed.reserve(inst.requests.size());
+    vehicleOfRequest.reserve(inst.requests.size());
+    routes.reserve(inst.vehicles.size());
 
 }
 
@@ -70,8 +72,8 @@ void Solution::AddDepots()
         r.path[0]=inst.getDepot(v,1);
         r.path[1] =inst.getDepot(v,0);
         r.travel_distance += inst.getTravelTime(r.path[0], r.path[1]);
-        r.node_indices.try_emplace(r.path[0],0);
-        r.node_indices.try_emplace(r.path[1], 1);
+        r.node_indices.emplace(r.path[0],0);
+        r.node_indices.emplace(r.path[1], 1);
         r.updateMetrics();
         addRoute(r);
     }
@@ -79,25 +81,28 @@ void Solution::AddDepots()
 
 double Solution::getInsertionCost(Request* r, const Position& p){
     
-    Route test_route = routes[p.vehicle];
+    Route test_route;
+    test_route.timeFeasible=true;
+    test_route.PartialCopy(routes[p.vehicle]);
+
     if (p.chargingStation != nullptr)
         test_route.insertNode(inst.nodes[p.chargingStation->id - 1],test_route.node_indices[p.node_before_station]+1);
-    test_route.insertRequest(r, p.origin_pos + 1, p.dest_pos + 1);
-    test_route.battery.clear();
+    test_route.insertRequest(r, p.origin_pos + 1, p.dest_pos + 1); 
     test_route.battery.resize(test_route.path.size());
     test_route.battery[0] = p.vehicle->initial_battery;
-
-    for (int i = 1; i < test_route.path.size(); i++) { 
-        if (test_route.path[i]->isChargingStation()) 
+    for (int i = 1; i < test_route.path.size(); i++) {
+        if (test_route.path[i]->isChargingStation())
             test_route.computeChargingTime(i);
-        test_route.computeBatteryLevel(i); 
+        test_route.computeBatteryLevel(i);
     }
-        
-    test_route.BasicScheduling();
+      
+      
+    test_route.BasicScheduling(true);
     test_route.LazyScheduling();
-    test_route.computeExcessRideTime();
+    test_route.computeExcessRideTime(false);
     return !test_route.timeFeasible ? DBL_MAX : 0.75 * (test_route.travel_distance - routes[p.vehicle].travel_distance)
         + 0.25*(test_route.excess_ride_time - routes[p.vehicle].excess_ride_time);
+    
 }
 
 

@@ -34,7 +34,7 @@ public:
 	/**
 	 * Default destructor.
 	 */
-	~Solution() {};
+	~Solution()=default;
 
 	/**
 	 * Delete routes without requests accomodated.
