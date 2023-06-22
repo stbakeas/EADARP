@@ -36,9 +36,6 @@ namespace algorithms {
 		std::array<double, 2> weightSum;
 		for (auto& rOperator : stats[0]) weightSum[0] += rOperator.weight;
 		for (auto& iOperator : stats[1]) weightSum[1] += iOperator.weight;
-
-		bool noFeasibleFound = true;
-		double intra_percentage(0.05);
 		std::random_device rd;
 		RandLib randlib(rd());
 		std::array<double, 2> removalArguments = { removalPercentage,removalRandomness };
@@ -48,14 +45,14 @@ namespace algorithms {
 		Solution incumbent = run.best = run.init = initial;
 		temperature = -temperature_control * run.best.objectiveValue() / log(0.5);
 		cooling_rate = pow(0.01 / temperature, 1.0 / (max_iterations));
-
-		unsigned int no_imp_iter = 0;
 		Solution s;
 		for (unsigned int iter = 1; iter <= max_iterations; ++iter) {
 			int removalIndex = RouletteWheelSelection(stats[0], weightSum[0], randlib);
 			int insertionIndex = RouletteWheelSelection(stats[1], weightSum[1], randlib);
 			s = incumbent;
 			stats[0][removalIndex].heuristic(s, removalArguments);
+			stats[0][removalIndex].attempts++;
+
 			for (EAV* v : inst.vehicles) {
 				Route route = s.routes[v];
 				if (route.deleteRedundantChargingStations()) {
@@ -64,39 +61,32 @@ namespace algorithms {
 				}
 			}
 			stats[1][insertionIndex].heuristic(s, insertionArguments);
-
-			stats[0][removalIndex].attempts++;
 			stats[1][insertionIndex].attempts++;
 
 			if (dbl_round(s.objectiveValue(), 2) < dbl_round(incumbent.objectiveValue(), 2)) {
-				incumbent = s;
-				stats[0][removalIndex].score += 7;
-				stats[1][insertionIndex].score += 7;
+				if (dbl_round(s.objectiveValue(), 2) < dbl_round(run.best.objectiveValue(), 2)) {
+					run.best = incumbent= std::move(s);
+					stats[0][removalIndex].score += 10;
+					stats[1][insertionIndex].score += 10;
+					run.best_iter = iter;
+					//printf("New best Found:%f, Rejected: %d\n", s.objectiveValue(), s.rejected.size());
+				}
+				else {
+					incumbent = std::move(s);
+					stats[0][removalIndex].score += 7;
+					stats[1][insertionIndex].score += 7;
+				}
 			}
 			else if (SimulatedAnnealingAcceptanceCriterion(s, incumbent, temperature, randlib)) {
-				incumbent = s;
+				incumbent = std::move(s);
 				stats[0][removalIndex].score += 5;
 				stats[1][insertionIndex].score += 5;
 
 			}
 
 
-			if (dbl_round(s.objectiveValue(), 2) < dbl_round(run.best.objectiveValue(), 2)) {
-				run.best = incumbent = std::move(s);
-				stats[0][removalIndex].score += 10;
-				stats[1][insertionIndex].score += 10;
-				run.best_iter = iter;
-				//printf("New best Found:%f, Rejected: %d\n", s.objectiveValue(), s.rejected.size());
-				no_imp_iter = 0;
-			}
+			
 
-
-			if (noFeasibleFound && run.best.rejected.empty()) {
-				noFeasibleFound = false;
-				//printf("Feasible found!\n");
-			}
-
-			no_imp_iter++;
 			temperature *= cooling_rate;
 
 			if (iter % segment_size == 0) {
@@ -125,11 +115,12 @@ namespace algorithms {
 		std::vector<Position> InsertionNeighborhood(const Request* r, Solution& s, const std::vector<EAV*>& available_vehicles, bool includeCS)
 		{
 			std::vector<Position> batset;
+			batset.reserve(inst.vehicles.size() * 2 * inst.requests.size());
 			for (EAV* v : available_vehicles) {
 				if (r->forbidden_vehicles.contains(v->id)) continue;
 				Route& route = s.routes[v];
 				size_t length = route.path.size() - 1;
-				bool batteryNotFound = true, timeAndCapacityFeasibleFound = false;
+				bool batteryNotFound = true, timeAndCapacityFound = false;
 
 				for (size_t i = 0; i < length; i++)
 				{
@@ -149,7 +140,7 @@ namespace algorithms {
 
 						if (route.isInsertionCapacityFeasible(r, i, j)
 							&& route.isInsertionTimeFeasible(r, i, j)) {
-							timeAndCapacityFeasibleFound = true;
+							timeAndCapacityFound = true;
 							if (route.isInsertionBatteryFeasible(r, i, j)) {
 								batset.emplace_back(v, i, j, nullptr, nullptr);
 								batteryNotFound = false;
@@ -158,7 +149,7 @@ namespace algorithms {
 
 					}
 				}
-				if (batteryNotFound && timeAndCapacityFeasibleFound && includeCS) {
+				if (batteryNotFound && timeAndCapacityFound && includeCS) {
 
 					bool positionFound = false;
 					for (int node_index = route.path.size() - 2; node_index != -1; node_index--) {
@@ -198,9 +189,8 @@ namespace algorithms {
 									}
 								}
 							}
+							
 						}
-
-
 						route.removeNode(route.node_indices[cs_node]);
 						route.updateMetrics();
 						if (positionFound) break;
@@ -312,6 +302,7 @@ namespace algorithms {
 					route.requests.erase(std::remove(route.requests.begin(), route.requests.end(), req), route.requests.end());
 					s.removed.push_back(req);
 					s.vehicleOfRequest.erase(req);
+					
 					modifications[random_vehicle].push_back(req);
 					i++;
 				}
@@ -591,6 +582,85 @@ namespace algorithms {
 			}
 		}
 
+		void CachedPositionRegretInsertion(Solution& s, const std::array<double, 2>& arguments)
+		{
+			std::random_device rd;
+			RandLib randlib(rd());
+			size_t kappa = randlib.randint(2,inst.vehicles.size());
+			std::move(s.rejected.begin(), s.rejected.end(), std::back_inserter(s.removed));
+			s.rejected.resize(0);
+			std::unordered_map<Request*, std::vector<Position>> kBestMovesFor;
+			kBestMovesFor.reserve(s.removed.size());
+			for (Request* req : s.removed) {
+				std::vector<Position> kBestMoves(kappa);
+				std::vector<Position> feasibleMoves = InsertionNeighborhood(req, s,inst.vehicles, true);
+				for (auto& insertionMove : feasibleMoves) insertionMove.cost = s.getInsertionCost(req, insertionMove);
+				std::sort(feasibleMoves.begin(), feasibleMoves.end(), [](const Position& p1, const Position& p2)
+					{return p1.cost < p2.cost; }
+				);
+				for (int i = 0; i < std::min(kappa, feasibleMoves.size()); i++)
+					kBestMoves[i] = std::move(feasibleMoves[i]);
+
+			}
+			while (!s.removed.empty()) {
+				double maxRegret = -DBL_MAX;
+				Position globalBestMove;
+				Request* bestUser = nullptr;
+				for (auto& [request, moves] :kBestMovesFor) {
+					double regret = 0.0;
+					for (const auto& vehicleMove : moves)
+						regret += vehicleMove.cost - moves[0].cost;
+						
+					if (maxRegret < regret) {
+						maxRegret = regret;
+						bestUser = request;
+						globalBestMove = moves[0];
+					}
+					else if (regret == maxRegret && moves[0].cost < globalBestMove.cost) {
+						globalBestMove = moves[0];
+						bestUser = request;
+					}
+				}
+				if (globalBestMove.cost == DBL_MAX) {
+					rejectedReinsertion(s);
+					s.removed.resize(0);
+				}
+
+				else {
+					Route new_route;
+					new_route.PartialCopy(s.routes[globalBestMove.vehicle]);
+					if (globalBestMove.chargingStation != nullptr)
+						new_route.insertNode(inst.nodes[globalBestMove.chargingStation->id - 1], new_route.node_indices[globalBestMove.node_before_station] + 1);
+					new_route.insertRequest(bestUser, globalBestMove.origin_pos + 1, globalBestMove.dest_pos + 1);
+					new_route.updateMetrics(true);
+					s.removed.erase(std::remove(s.removed.begin(), s.removed.end(), bestUser), s.removed.end());
+					s.vehicleOfRequest.emplace(bestUser, globalBestMove.vehicle);
+					s.addRoute(new_route);
+					kBestMovesFor.erase(bestUser);
+					for (auto& [request, moves] : kBestMovesFor) {
+						for (auto& pos : moves) {
+							if (pos.vehicle->id == globalBestMove.vehicle->id ||
+								s.stationVisits[pos.chargingStation]+1>inst.maxVisitsPerStation) {
+								moves.clear();
+								moves.resize(kappa);
+								std::vector<Position> feasibleMoves = InsertionNeighborhood(request, s, inst.vehicles, true);
+								for (auto& insertionMove : feasibleMoves)
+									insertionMove.cost = s.getInsertionCost(request, insertionMove);
+								std::sort(feasibleMoves.begin(), feasibleMoves.end(), [](const Position& p1, const Position& p2)
+									{return p1.cost < p2.cost; }
+								);
+								for (int i = 0; i < std::min(kappa, feasibleMoves.size()); i++)
+									moves[i] = std::move(feasibleMoves[i]);
+								break;
+							}
+
+						}
+						
+					}
+				}
+			}
+		}
+
 		void CachedRegretInsertion(Solution& s, const std::array<double, 2>& arguments) {
 			std::random_device rd;
 			RandLib randlib(rd());
@@ -667,27 +737,12 @@ namespace algorithms {
 						auto iter = std::find_if(moves.begin(), moves.end(),
 							[&globalBestMove](const Position& p)
 							{return globalBestMove.vehicle->id == p.vehicle->id; });
-						moves[std::distance(moves.begin(), iter)] = newBestMoveForVehicle;
+						moves[std::distance(moves.begin(), iter)] = std::move(newBestMoveForVehicle);
 					}
 
 					for (auto& [request, moves] : vehicleBestMoveFor) {
 						for (Position& p : moves) {
 							if (p.chargingStation!=nullptr && s.stationVisits[p.chargingStation] + 1 > inst.maxVisitsPerStation) {
-								Route route = s.routes[p.vehicle];
-								int indexOfNodeBeforeStation = route.node_indices[p.node_before_station];
-								CStation* cs = route.findBestChargingStationAfter(indexOfNodeBeforeStation,s.stationVisits);
-								if (cs != nullptr) {
-									route.insertNode(inst.nodes[cs->id-1], indexOfNodeBeforeStation + 1);
-									route.updateMetrics();
-									if (route.isFeasible() &&
-										route.isInsertionTimeFeasible(request, p.origin_pos, p.dest_pos) &&
-										route.isInsertionBatteryFeasible(request, p.origin_pos, p.dest_pos))
-									{
-										p.chargingStation = cs;
-										break;
-									}
-
-								}
 								std::vector<Position> feasibleMoves = InsertionNeighborhood(request, s, { p.vehicle }, true);
 								Position newMove;
 								newMove.vehicle = p.vehicle;
@@ -762,27 +817,11 @@ namespace algorithms {
 							if (insertionMove.cost < newBestMoveForVehicle.cost)
 								newBestMoveForVehicle = std::move(insertionMove);
 						}
-						int index = globalBestMove.vehicle->id - 2 * inst.requests.size()-3;
-						moves[index] = std::move(newBestMoveForVehicle);
+						moves[globalBestMove.vehicle->id - 2 * inst.requests.size() - 3] = std::move(newBestMoveForVehicle);
 					}
 					for (auto& [request, moves] : vehicleBestMoveFor) {
 						for (Position& p : moves) {
 							if (p.chargingStation != nullptr && s.stationVisits[p.chargingStation] + 1 > inst.maxVisitsPerStation) {
-								Route route = s.routes[p.vehicle];
-								int indexOfNodeBeforeStation = route.node_indices[p.node_before_station];
-								CStation* cs = route.findBestChargingStationAfter(indexOfNodeBeforeStation, s.stationVisits);
-								if (cs != nullptr) {
-									route.insertNode(inst.nodes[cs->id - 1], indexOfNodeBeforeStation + 1);
-									route.updateMetrics();
-									if (route.isFeasible() &&
-										route.isInsertionTimeFeasible(request, p.origin_pos, p.dest_pos) &&
-										route.isInsertionBatteryFeasible(request, p.origin_pos, p.dest_pos))
-									{
-										p.chargingStation = cs;
-										break;
-									}
-
-								}
 								std::vector<Position> feasibleMoves = InsertionNeighborhood(request, s, { p.vehicle }, true);
 								Position newMove;
 								newMove.vehicle = p.vehicle;

@@ -16,7 +16,6 @@ double dbl_round(long double number, int precision) noexcept {
 }
 
 Route::Route() {
-    departureBatteryLevel.reserve(inst.charging_stations.size());
     requests.reserve(inst.requests.size());
     node_indices.reserve(2 * (inst.requests.size() + 1) + inst.charging_stations.size());
 }
@@ -110,7 +109,7 @@ double Route::getForwardTimeSlack(int i)
             
 
         double time_slack = cumulWaitingTime +
-            std::max(0.0,std::min((j == path.size() - 1 ? vehicle->end_time : path[j]->latest) -late_schedule[j],max_travel_time - ride_time));
+            std::max(0.0,std::min((j == path.size() - 1 ? vehicle->end_time : path[j]->latest)-late_schedule[j],max_travel_time - ride_time));
 
         if (time_slack < min_time_slack)
             min_time_slack = time_slack;
@@ -169,13 +168,15 @@ void Route::LazyScheduling() {
     for (int j = 1; j < n - 1; j++) {
         if (path[j]->isOrigin()) {
 
-           late_schedule[j]+= std::min(getForwardTimeSlack(j),
-               std::accumulate(late_waiting_times.begin() + j+1, late_waiting_times.end()-1, 0.0));
-
-            // STEP 7 (c):
-           for (int i = j + 1; i < n; i++) {
-               computeStartOfServiceTime(i,false);
-               computeWaitingTime(i, false);
+           double change= std::min(getForwardTimeSlack(j),
+               std::accumulate(late_waiting_times.begin() + j + 1, late_waiting_times.end() - 1, 0.0));
+           if (change) {
+               late_schedule[j] += change;
+               // STEP 7 (c):
+               for (int i = j + 1; i < n; i++) {
+                   computeStartOfServiceTime(i, false);
+                   computeWaitingTime(i, false);
+               }
            }
         }
     }

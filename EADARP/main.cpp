@@ -259,8 +259,8 @@ void OperatorImpact(int numberOfRunsPerInstance) {
 	}
 }
 
-int main(){
-	inst.loadInstance("Cordeau-EADARP/a3-30.txt", 0.7);
+void PerformanceEvaluation(int numberOfRunsPerInstance,const std::string& instanceType) {
+	std::array<double, 3> gamma_values = { 0.1,0.4,0.7 };
 	std::array<std::vector<algorithms::Statistics>, 2> stats;
 	stats[0].emplace_back(algorithms::details::RandomRemoval, 0.25, 0, 0);
 	stats[0].emplace_back(algorithms::details::ZeroSplitRemoval, 0.25, 0, 0);
@@ -269,7 +269,59 @@ int main(){
 	stats[1].emplace_back(algorithms::details::RandomInsertion, 0.33, 0, 0);
 	stats[1].emplace_back(algorithms::details::CachedGreedyInsertion, 0.33, 0, 0);
 	stats[1].emplace_back(algorithms::details::CachedRegretInsertion, 0.33, 0, 0);
+	int gammaIndex = 0;
+	for (double gamma : gamma_values) {
+		const fs::path pathToShow("Type-"+instanceType);
+		ofstream outputFile(instanceType + "Performance-" + to_string(gamma) + ".txt");
+		printf("Battery Return Percentage = %f\n", gamma);
+		for (const auto& entry : fs::directory_iterator(pathToShow)) {
+			const auto filenameStr = entry.path().filename().string();
+			std::cout << pathToShow.filename().string() + "/" + filenameStr << "\n";
+			if (entry.is_regular_file()) {
+				inst.loadInstance(pathToShow.filename().string() + "/" + filenameStr, gamma);
+				Solution best;
+				Solution initial = algorithms::details::Init1();
+				best.total_travel_distance = DBL_MAX;
+				double runTime = 0.0, avgCost = 0.0;
+				int avg_best_iter(0), successfulRuns(0);
+				for (int i = 0; i < numberOfRunsPerInstance; i++) {
+					printf("%s%d\n", "Run ID: ", i);
+					Run run = algorithms::ALNS(initial, stats, 10000, 0.05, 7, 0.3, 100, 0.5);
+					if (run.best.rejected.empty()) successfulRuns++;
+					avgCost += run.best.objectiveValue();
+					avg_best_iter += run.best_iter;
+					runTime += run.elapsed_seconds;
+					if (run.best.objectiveValue() < best.objectiveValue())
+						best = std::move(run.best);
+
+				}
+				avg_best_iter /= numberOfRunsPerInstance;
+				avgCost /= numberOfRunsPerInstance;
+				double AC_percentage = 100*(avgCost-inst.bestKnownSolutionCost[gammaIndex]) / inst.bestKnownSolutionCost[gammaIndex];
+				double BC_percentage = 100*(best.objectiveValue()- inst.bestKnownSolutionCost[gammaIndex]) / inst.bestKnownSolutionCost[gammaIndex];
+				outputFile << filenameStr << "		" << successfulRuns << "/" << numberOfRunsPerInstance << "		" << best.objectiveValue() << "		" <<dbl_round(BC_percentage,2)<< "		" << avgCost << "		" << dbl_round(AC_percentage,2) << "		" << runTime << "	" << avg_best_iter  << "\n";
+				inst.~Instance();
+			}
+		}
+		outputFile.close();
+		gammaIndex++;
+	}
+}
+
+int main(){
+	std::array<std::vector<algorithms::Statistics>, 2> stats;
+	stats[0].emplace_back(algorithms::details::RandomRemoval, 0.25, 0, 0);
+	stats[0].emplace_back(algorithms::details::ZeroSplitRemoval, 0.25, 0, 0);
+	stats[0].emplace_back(algorithms::details::WorstRemoval, 0.25, 0, 0);
+	stats[0].emplace_back(algorithms::details::SimilarityRemoval, 0.25, 0, 0);
+	stats[1].emplace_back(algorithms::details::RandomInsertion, 0.33, 0, 0);
+	stats[1].emplace_back(algorithms::details::CachedGreedyInsertion, 0.33, 0, 0);
+	stats[1].emplace_back(algorithms::details::CachedRegretInsertion, 0.33, 0, 0);
+
+	inst.loadInstance("Dataset/Type-a/a2-20.txt", 0.7);
 	Run run = algorithms::ALNS(algorithms::details::Init1(), stats, 10000, 0.05, 7, 0.3, 100, 0.5);
-	printf("%f", run.elapsed_seconds);
+	run.best.Display(0);
+	run.best.Display(1);
+
 	return EXIT_SUCCESS;
 }

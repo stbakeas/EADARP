@@ -10,8 +10,6 @@ Solution::Solution() :total_travel_distance(0.0),total_excess_ride_time(0.0){
     rejected.reserve(inst.requests.size());
     removed.reserve(inst.requests.size());
     vehicleOfRequest.reserve(inst.requests.size());
-    routes.reserve(inst.vehicles.size());
-
 }
 
 double Solution::objectiveValue() const noexcept

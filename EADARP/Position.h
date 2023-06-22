@@ -21,7 +21,7 @@ struct Position {
 		dest_pos(dest_pos),
 		node_before_station(node_before_station),
 		chargingStation(chargingStation),
-		cost(0.0){}
+		cost(DBL_MAX){}
 
 
 };

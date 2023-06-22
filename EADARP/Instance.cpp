@@ -456,8 +456,8 @@ void Instance::createDistanceMatrix()
         distanceMatrix[i].resize(n);
         forbiddenArcs[i].resize(n);
         for (int j = 0; j < distanceMatrix.size(); j++) {
-            distanceMatrix[i][j] =sqrt(
-                pow(nodes[i]->x - nodes[j]->x, 2) + pow(nodes[i]->y - nodes[j]->y, 2)
+            distanceMatrix[i][j]=sqrt(
+               pow(nodes[j]->x - nodes[i]->x, 2) + pow(nodes[j]->y - nodes[i]->y, 2)
             );
         }
     }

@@ -66,6 +66,8 @@ namespace algorithms
 		*/
 		void RegretInsertion(Solution& s, const std::array<double, 2>& arguments);
 
+		void CachedPositionRegretInsertion(Solution& s, const std::array<double, 2>& arguments);
+
 		void CachedRegretInsertion(Solution& s, const std::array<double, 2>& arguments);
 
 		void RandomInsertion(Solution& s, const std::array<double, 2>& arguments);
