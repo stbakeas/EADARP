@@ -318,10 +318,8 @@ int main(){
 	stats[1].emplace_back(algorithms::details::CachedGreedyInsertion, 0.33, 0, 0);
 	stats[1].emplace_back(algorithms::details::CachedRegretInsertion, 0.33, 0, 0);
 
-	inst.loadInstance("Dataset/Type-a/a2-20.txt", 0.7);
+	inst.loadUber("Dataset/Type-u/u2-16.txt", 0.1);
 	Run run = algorithms::ALNS(algorithms::details::Init1(), stats, 10000, 0.05, 7, 0.3, 100, 0.5);
 	run.best.Display(0);
-	run.best.Display(1);
-
 	return EXIT_SUCCESS;
 }

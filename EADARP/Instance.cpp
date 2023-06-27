@@ -9,6 +9,13 @@
 #include "RandLib.h"
 #include <set>
 #include "Route.h"
+#include <sstream>
+
+template<typename T, typename Char, typename Traits>
+inline std::basic_istream<Char, Traits>& skip(std::basic_istream<Char, Traits>& stream) {
+    T unused;
+    return stream >> unused;
+}
 
 Instance::~Instance()
 {
@@ -26,6 +33,7 @@ Instance::~Instance()
        delete station;
     
 }
+
 void Instance::RandomGenerator(int request_num, int vehicles_num, int stations_num, double max_latitude,
     double max_longitude, double planning_horizon, int seed, double returnBatteryPercentage) {
     RandLib randlib(seed);
@@ -319,6 +327,141 @@ void Instance::loadMalheiros(const std::string instance_file_name,double gamma) 
     }
 
     createDistanceMatrix();
+    createSimilarityMatrix();
+    Preprocessing();
+}
+
+void Instance::loadUber(const std::string instance_file_name, double gamma) {
+    std::ifstream file(instance_file_name);
+
+    if (!file.is_open()) {
+        std::cerr << "Failed to read file '" << instance_file_name << '\'' << "\n";
+        exit(1);
+    }
+
+    // Header metadata
+    int vehicles_num, requests_num, start_depots_num, end_depots_num, stations_num, station_copies;
+
+    file >> vehicles_num;
+    vehicles.reserve(vehicles_num);
+
+    file >> requests_num;
+    requests.reserve(requests_num);
+
+    file >> skip<int> >> skip<int> >> stations_num >> station_copies;
+    maxVisitsPerStation = station_copies;
+    start_depots_num = vehicles_num;
+    end_depots_num = stations_num;
+    charging_stations.reserve(stations_num);
+
+    file >> Horizon;
+
+    int id;
+    // Build all nodes
+    for (int i = 0; i < 2 * requests_num + start_depots_num+end_depots_num+2+ stations_num; i++) {
+        file >> id;
+        Node* node = new Node(id);
+        file >> node->x;
+        file >> node->y;
+        file >> node->service_duration;
+        file >> node->load;
+        file >> node->earliest;
+        file >> node->latest;
+        node->maximum_travel_time = DBL_MAX;
+
+        // Add type of node
+        if (node->load > 0)
+            node->type = Node::Type::ORIGIN;
+        else if (node->load < 0)
+            node->type = Node::Type::DESTINATION;
+
+        nodes.push_back(node);
+    }
+
+    int common_origin_id, common_dest_id;
+    file >> common_origin_id;
+    nodes[common_origin_id - 1]->type = Node::Type::START_DEPOT;
+
+    file >> common_dest_id;
+    nodes[common_dest_id - 1]->type = Node::Type::END_DEPOT;
+
+    for (int i = 0; i < start_depots_num; i++) {
+        file >> id;
+        nodes[id - 1]->type = Node::Type::START_DEPOT;
+    }
+
+    for (int i = 0; i < end_depots_num; i++) {
+        file >> id;
+        nodes[id - 1]->type = Node::Type::END_DEPOT;
+    }
+
+    for (int i = 0; i < stations_num; i++) {
+        file >> id;
+        charging_stations.push_back(new CStation());
+        charging_stations[i]->id = id;
+        nodes[id - 1]->type = Node::Type::CHARGING_STATION;
+    }
+
+    double ride_time;
+    for (int i = 0; i < requests_num; i++) {
+        file >> ride_time;
+        nodes[i]->maximum_travel_time = ride_time;
+        requests.push_back(new Request(nodes[i], nodes[i + requests_num]));
+    }
+
+    int capacity;
+    for (int i = 0; i < vehicles_num; i++) {
+
+        file >> capacity;
+        if (capacity > maximumCapacity) maximumCapacity = capacity;
+        vehicles.push_back(new EAV());
+        vehicles[i]->capacity = capacity;
+    }
+
+    //Skip initial battery level
+    double initial_battery;
+    for (int i = 0; i < vehicles_num; i++) {
+        file >> initial_battery;
+        vehicles[i]->initial_battery = initial_battery;
+    }
+
+    double maximum_battery;
+    for (int i = 0; i < vehicles_num; i++) {
+        file >> maximum_battery;
+        if (maximumBattery < maximum_battery) maximumBattery = maximum_battery;
+        vehicles[i]->id = 2 * requests_num + i + 3;
+        vehicles[i]->start_time = 0.0;
+        vehicles[i]->end_time = Horizon;
+        vehicles[i]->total_battery = maximum_battery;
+        vehicles[i]->acquisition_cost = 0.0;
+    }
+
+    for (int i = 0; i < vehicles_num; i++) {
+        vehicles[i]->minBatteryUponReturn = vehicles[i]->total_battery * gamma;
+    }
+
+    double recharge_rate;
+    for (int i = 0; i < stations_num; i++) {
+        file >> recharge_rate;
+        charging_stations[i]->recharge_rate = recharge_rate;
+    }
+    file >> dischargeRate;
+    for (int i = 0; i < 3; i++)
+        file >> bestKnownSolutionCost[i];
+    
+    size_t n = nodes.size();
+    distanceMatrix.resize(n);
+    forbiddenArcs.resize(n);
+    double entry;
+    for (int i = 0; i < distanceMatrix.size(); i++) {
+        distanceMatrix[i].resize(n);
+        forbiddenArcs[i].resize(n);
+        for (int j = 0; j < distanceMatrix.size(); j++) {
+            file >> entry;
+            distanceMatrix[i][j] = 2*entry;
+        }
+    }
+    file.close();
     createSimilarityMatrix();
     Preprocessing();
 }

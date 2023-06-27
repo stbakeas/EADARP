@@ -65,6 +65,7 @@ public:
     
     void loadMalheiros(const std::string instance_file_name,double gamma);
     void loadInstance(const std::string instance_file_name,double gamma);
+    void loadUber(const std::string instance_file_name, double gamma);
     void RandomGenerator(int request_num, int vehicles_num, int stations_num, double max_latitude,
         double max_longitude, double planning_horizon, int seed, double returnBatteryPercentage);
 
