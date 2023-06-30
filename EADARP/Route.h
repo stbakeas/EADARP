@@ -28,7 +28,7 @@ public:
 	explicit Route(EAV* vehicle);
 
 	void PartialCopy(const Route& route);
-	inline bool isEmpty() { return !path.size(); } //Check if the route contains absolutely no nodes
+	inline bool isEmpty() { return path.empty(); } //Check if the route contains absolutely no nodes
 	inline bool hasNoRequests() noexcept { return requests.empty(); }  // Check if the route contains no requests.
 	inline bool isFeasible() noexcept { return batteryFeasible && capacityFeasible && timeFeasible; }
 	bool isInsertionCapacityFeasible(const Request* request, int i, int j) const;
@@ -40,7 +40,6 @@ public:
 	double getAddedDistance(Node* node, int i) const; //For a single node
 	double getAddedDistance(const Request* request, int i, int j) const; //For a request
 	double getForwardTimeSlack(int i);
-	double get_modified_time_slack(int i);
 	CStation* findBestChargingStationAfter(int i, std::unordered_map<CStation*, unsigned int>& stationVisits);
 
 

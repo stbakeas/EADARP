@@ -38,6 +38,9 @@ void Route::PartialCopy(const Route& route) {
     path = route.path;
     node_indices = route.node_indices;
     requests = route.requests;
+    batteryFeasible = route.batteryFeasible;
+    timeFeasible = route.timeFeasible;
+    capacityFeasible = route.capacityFeasible;
 }
 
 void Route::BasicScheduling(bool debug) {
@@ -97,7 +100,7 @@ double Route::getForwardTimeSlack(int i)
     double min_time_slack = DBL_MAX;
     double cumulWaitingTime = 0.0;
     for (int j = i; j < path.size(); j++) {
-        double ride_time = 0.0, max_travel_time=path[j]->maximum_travel_time;
+        double ride_time = 0.0, max_travel_time=DBL_MAX;
         
         if (path[j]->isDestination()) {
             int origin_index = node_indices[inst.getRequest(path[j])->origin];
@@ -114,24 +117,6 @@ double Route::getForwardTimeSlack(int i)
         if (time_slack < min_time_slack)
             min_time_slack = time_slack;
         cumulWaitingTime += late_waiting_times[j + 1]*(j!=path.size()-1);
-    }
-
-    return min_time_slack;
-}
-
-double Route::get_modified_time_slack(int i) {
-    double min_time_slack = DBL_MAX;
-    double cumul_waiting_time = 0.0;
-    for (int j = i; j < path.size(); j++) {
-        double time_slack;
-        if (path[j]->isDestination() && node_indices[inst.getRequest(path[j])->origin] < i)
-            time_slack = cumul_waiting_time;
-        else
-            time_slack = cumul_waiting_time + std::max(0.0, (j == path.size() - 1) ? vehicle->end_time : path[j]->latest -late_schedule[j]);
-
-        if (time_slack < min_time_slack)
-            min_time_slack = time_slack;
-        
     }
 
     return min_time_slack;
@@ -168,16 +153,16 @@ void Route::LazyScheduling() {
     for (int j = 1; j < n - 1; j++) {
         if (path[j]->isOrigin()) {
 
-           double change= std::min(getForwardTimeSlack(j),
-               std::accumulate(late_waiting_times.begin() + j + 1, late_waiting_times.end() - 1, 0.0));
-           if (change) {
-               late_schedule[j] += change;
-               // STEP 7 (c):
-               for (int i = j + 1; i < n; i++) {
-                   computeStartOfServiceTime(i, false);
-                   computeWaitingTime(i, false);
-               }
-           }
+            double change= std::min(getForwardTimeSlack(j),
+                std::accumulate(late_waiting_times.begin() + j + 1, late_waiting_times.end() - 1, 0.0));
+            if (change) {
+                late_schedule[j] += change;
+                // STEP 7 (c):
+                for (int i = j + 1; i < n; i++) {
+                    computeStartOfServiceTime(i, false);
+                    computeWaitingTime(i, false);
+                }
+            }
         }
     }
 
@@ -197,20 +182,16 @@ void Route::updateMetrics(bool debug) {
         if (loads[i] > vehicle->capacity) {
             capacityFeasible = false;
             if (debug) std::cout << "Capacity at node " << i << " = " << loads[i] << "\n";
-            return;
         }
         computeBatteryLevel(i);
         if (dbl_round(battery[i],3)<vehicle->minBatteryUponReturn*(i==n-1)) {
             batteryFeasible = false;
             if (debug) std::cout << "Battery at node " << i << " = " << battery[i] << "\n";
-            return;
         }
     }
     BasicScheduling(debug);
-    if (!timeFeasible) return;
     LazyScheduling();
     computeExcessRideTime(debug);
-    if (!timeFeasible) return;
     storeNaturalSequences();
    
 }
@@ -262,7 +243,7 @@ void Route::computeExcessRideTime(bool debug) {
     for (Request* req : requests) {
         int index = node_indices[req->origin];
         double ride_time = getRideTime(index);
-        if (dbl_round(ride_time - path[index]->maximum_travel_time, 3) > 0.0) {
+        if (ride_time - path[index]->maximum_travel_time > 0.0) {
             timeFeasible = false;
             if (debug)
                 std::cout << "Ride time at request " << req->origin->id << ": " << ride_time << "\n";
@@ -352,7 +333,7 @@ void Route::removeNode(int index){
     travel_distance-=inst.getTravelTime(path[index - 1], path[index])+
          inst.getTravelTime(path[index], path[index + 1])-
          inst.getTravelTime(path[index - 1], path[index + 1]);
-     departureBatteryLevel.erase(inst.getChargingStation(path[index]));
+     if (path[index]->isChargingStation()) departureBatteryLevel.erase(inst.getChargingStation(path[index]));
      path.erase(path.begin() + index);
      std::for_each(path.begin() + index, path.end(),
          [&](Node* node) {node_indices[node]--; }

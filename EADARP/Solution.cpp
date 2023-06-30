@@ -80,7 +80,6 @@ void Solution::AddDepots()
 double Solution::getInsertionCost(Request* r, const Position& p){
     
     Route test_route;
-    test_route.timeFeasible=true;
     test_route.PartialCopy(routes[p.vehicle]);
 
     if (p.chargingStation != nullptr)
