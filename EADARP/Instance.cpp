@@ -193,33 +193,35 @@ void Instance::loadMalheiros(const std::string instance_file_name,double gamma) 
 
     nodes.reserve(2 * requests_num + 2 * vehicles_num + stations_num+2);
 
+    numberOfOriginDepots = numberOfDestinationDepots = 4;
+
 
     int max_route_duration;
     std::array<int,4> vehicle_capacities;
 
-    Node* node_start = new Node(2 * requests_num + 1);
-    Node* node_end = new Node(2 * requests_num + vehicles_num + 2);
-    node_start->type = Node::Type::START_DEPOT;
-    node_end->type = Node::Type::END_DEPOT;
+    Node* dummy_start = new Node(2 * requests_num + 1);
+    Node* dummy_end = new Node(2 * requests_num + vehicles_num + 2);
+    dummy_start->type = Node::Type::START_DEPOT;
+    dummy_end->type = Node::Type::END_DEPOT;
    
-    node_start->x = 0.0;
-    node_start->y = 0.0;
-    node_end->x = node_start->x;
-    node_end->y = node_start->y;
-    node_start->load = 0;
-    node_end->load = 0;
-    node_start->service_duration = 0;
-    node_end->service_duration = 0;
+    dummy_start->x = 0.0;
+    dummy_start->y = 0.0;
+    dummy_end->x = dummy_start->x;
+    dummy_end->y = dummy_start->y;
+    dummy_start->load = 0;
+    dummy_end->load = 0;
+    dummy_start->service_duration = 0;
+    dummy_end->service_duration = 0;
 
-    node_start->earliest =0.0;
-    node_start->latest = Horizon;
-    node_end->earliest = 0.0;
-    node_end->latest = Horizon;
-    node_start->maximum_travel_time = DBL_MAX;
-    node_end->maximum_travel_time = DBL_MAX;
+    dummy_start->earliest =0.0;
+    dummy_start->latest = Horizon;
+    dummy_end->earliest = 0.0;
+    dummy_end->latest = Horizon;
+    dummy_start->maximum_travel_time = DBL_MAX;
+    dummy_end->maximum_travel_time = DBL_MAX;
 
-    nodes.push_back(node_start);
-    nodes.push_back(node_end);
+    nodes.push_back(dummy_start);
+    nodes.push_back(dummy_end);
 
 
     // Add vehicles
@@ -340,7 +342,7 @@ void Instance::loadUber(const std::string instance_file_name, double gamma) {
     }
 
     // Header metadata
-    int vehicles_num, requests_num, start_depots_num, end_depots_num, stations_num, station_copies;
+    int vehicles_num, requests_num, stations_num, station_copies;
 
     file >> vehicles_num;
     vehicles.reserve(vehicles_num);
@@ -350,15 +352,15 @@ void Instance::loadUber(const std::string instance_file_name, double gamma) {
 
     file >> skip<int> >> skip<int> >> stations_num >> station_copies;
     maxVisitsPerStation = station_copies;
-    start_depots_num = vehicles_num;
-    end_depots_num = stations_num;
+    numberOfOriginDepots = vehicles_num;
+    numberOfDestinationDepots = stations_num;
     charging_stations.reserve(stations_num);
 
     file >> Horizon;
 
     int id;
     // Build all nodes
-    for (int i = 0; i < 2 * requests_num + start_depots_num+end_depots_num+2+ stations_num; i++) {
+    for (int i = 0; i < 2 * requests_num + numberOfOriginDepots+numberOfDestinationDepots+2+ stations_num; i++) {
         file >> id;
         Node* node = new Node(id);
         file >> node->x;
@@ -385,12 +387,12 @@ void Instance::loadUber(const std::string instance_file_name, double gamma) {
     file >> common_dest_id;
     nodes[common_dest_id - 1]->type = Node::Type::END_DEPOT;
 
-    for (int i = 0; i < start_depots_num; i++) {
+    for (int i = 0; i < numberOfOriginDepots; i++) {
         file >> id;
         nodes[id - 1]->type = Node::Type::START_DEPOT;
     }
 
-    for (int i = 0; i < end_depots_num; i++) {
+    for (int i = 0; i < numberOfDestinationDepots; i++) {
         file >> id;
         nodes[id - 1]->type = Node::Type::END_DEPOT;
     }
@@ -452,13 +454,12 @@ void Instance::loadUber(const std::string instance_file_name, double gamma) {
     size_t n = nodes.size();
     distanceMatrix.resize(n);
     forbiddenArcs.resize(n);
-    double entry;
     for (int i = 0; i < distanceMatrix.size(); i++) {
         distanceMatrix[i].resize(n);
         forbiddenArcs[i].resize(n);
         for (int j = 0; j < distanceMatrix.size(); j++) {
-            file >> entry;
-            distanceMatrix[i][j] = 2*entry;
+            file >> distanceMatrix[i][j];
+            distanceMatrix[i][j]*=2.0;
         }
     }
     file.close();
@@ -476,7 +477,7 @@ void Instance::loadInstance(const std::string instance_file_name,double gamma) {
     }
 
     // Header metadata
-    int vehicles_num, requests_num, start_depots_num, end_depots_num, stations_num, station_copies;
+    int vehicles_num, requests_num, stations_num, station_copies;
 
     file >> vehicles_num;
     vehicles.reserve(vehicles_num);
@@ -484,9 +485,10 @@ void Instance::loadInstance(const std::string instance_file_name,double gamma) {
     file >> requests_num;
     requests.reserve(requests_num);
 
-    file >> start_depots_num >> end_depots_num >> stations_num >> station_copies;
+    file >> skip<int> >> skip<int> >> stations_num >> station_copies;
     maxVisitsPerStation = station_copies;
     charging_stations.reserve(stations_num);
+    numberOfOriginDepots = numberOfDestinationDepots = vehicles_num;
 
     file >> Horizon;
 
@@ -664,14 +666,13 @@ void Instance::Preprocessing() {
 
     int n = requests.size();
     for (int i = 0; i < n; i++) {
-        if (nodes[i]->latest != 1440.0) {
+        if (nodes[i]->latest < Horizon) {
             nodes[i + n]->earliest = std::max(0.0, nodes[i]->earliest + nodes[i]->service_duration +
                 getTravelTime(nodes[i], nodes[i + n]));
             nodes[i + n]->latest = std::min(Horizon, nodes[i]->latest + nodes[i]->service_duration + nodes[i]->maximum_travel_time);
 
         }
         else {
-
             nodes[i]->earliest = std::max(0.0, nodes[i + n]->earliest - nodes[i]->service_duration - nodes[i]->maximum_travel_time);
             nodes[i]->latest = std::min(Horizon, nodes[i + n]->latest - nodes[i]->service_duration - inst.getTravelTime(nodes[i], nodes[i + n]));
         }
@@ -740,7 +741,7 @@ Request* Instance::getRequest(Node* node)
 }
 
 CStation* Instance::getChargingStation(Node* node) {
-    return charging_stations[node->id-2*requests.size()-2*(vehicles.size()+1)-1];
+    return charging_stations[node->id-2*requests.size()-(numberOfOriginDepots+numberOfDestinationDepots+2)-1];
 }
 
 Node* Instance::getDepot(EAV* vehicle, bool startingDepot)

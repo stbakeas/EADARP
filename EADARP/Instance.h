@@ -47,11 +47,9 @@ public:
     std::vector<std::vector<Request*>> similarRequestsSorted;
     std::vector<std::vector<int>> forbiddenArcs;
     std::array<double, 3> bestKnownSolutionCost;
-    int numberOfDepots;
+    int numberOfOriginDepots, numberOfDestinationDepots,maximumCapacity=0;
     unsigned int maxVisitsPerStation;
-    double Horizon;
-    double dischargeRate;
-    int maximumCapacity = 0;
+    double Horizon, dischargeRate;
     double returnedBatteryPercentage;
     double maximumBattery;
     double avgDistance;

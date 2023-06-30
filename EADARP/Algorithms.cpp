@@ -449,7 +449,7 @@ namespace algorithms {
 
 				}
 				if (bestMove.cost == DBL_MAX) {
-					std::move(s.removed.begin(), s.removed.end(), std::back_inserter(s.rejected));
+					rejectedReinsertion(s);
 					s.removed.resize(0);
 				}
 				else {
