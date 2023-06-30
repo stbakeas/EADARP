@@ -663,8 +663,37 @@ void Instance::createSimilarityMatrix()
 }
 
 void Instance::Preprocessing() {
-
     int n = requests.size();
+    int firstEndDepotIndex = 2 * n + numberOfOriginDepots + 2;
+    /*For each request destination, charging station and origin depot respectively,
+    store their closest ending depots*/
+    std::vector<Node*> destinationDepots;
+    std::copy(nodes.begin() + firstEndDepotIndex, nodes.begin() + firstEndDepotIndex + numberOfDestinationDepots,
+        std::back_inserter(destinationDepots));
+    for (int i = 0; i < n; i++) {
+        std::sort(destinationDepots.begin(), destinationDepots.end(), [&](Node* n1, Node* n2) {
+            return inst.getTravelTime(nodes[i + n],n1) < inst.getTravelTime(nodes[i + n],n2);
+        });
+        closestDestinationDepot[nodes[i + n]] = destinationDepots;
+    }
+
+    int firstCSIndex = 2 * n + numberOfOriginDepots + numberOfDestinationDepots + 2;
+    for (int i = firstCSIndex; i < firstCSIndex + inst.charging_stations.size(); i++) {
+        std::sort(destinationDepots.begin(), destinationDepots.end(), [&](Node* n1, Node* n2) {
+            return inst.getTravelTime(nodes[i], n1) < inst.getTravelTime(nodes[i], n2);
+            });
+        closestDestinationDepot[nodes[i]] = destinationDepots;
+    }
+
+    int firstStartDepotIndex = 2 * n + 2;
+    for (int i = firstStartDepotIndex; i < firstStartDepotIndex + numberOfOriginDepots; i++) {
+        std::sort(destinationDepots.begin(), destinationDepots.end(), [&](Node* n1, Node* n2) {
+            return inst.getTravelTime(nodes[i], n1) < inst.getTravelTime(nodes[i], n2);
+            });
+        closestDestinationDepot[nodes[i]] = destinationDepots;
+    }
+
+   
     for (int i = 0; i < n; i++) {
         if (nodes[i]->latest < Horizon) {
             nodes[i + n]->earliest = std::max(0.0, nodes[i]->earliest + nodes[i]->service_duration +

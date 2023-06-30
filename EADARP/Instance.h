@@ -46,6 +46,7 @@ public:
     std::vector<std::vector<double>> similarity;
     std::vector<std::vector<Request*>> similarRequestsSorted;
     std::vector<std::vector<int>> forbiddenArcs;
+    std::unordered_map<Node*, std::vector<Node*>> closestDestinationDepot;
     std::array<double, 3> bestKnownSolutionCost;
     int numberOfOriginDepots, numberOfDestinationDepots,maximumCapacity=0;
     unsigned int maxVisitsPerStation;
