@@ -60,7 +60,6 @@ void Route::BasicScheduling(bool debug) {
             timeFeasible = false;
             if (debug)
                 std::cout << "Time window violation at node " << path[i]->id << ": " << base_schedule[i] - path[i]->latest << "\n";
-            return;
         }
         late_schedule[i] = base_schedule[i];
         computeWaitingTime(i);
@@ -71,7 +70,6 @@ void Route::BasicScheduling(bool debug) {
         timeFeasible = false;
         if (debug)
            std::cout << "Return time violation at depot " << path[n-1]->id << ": " << base_schedule[n-1] - vehicle->end_time << "\n";
-        return;
     }
     late_schedule[n - 1] = base_schedule[n - 1];
 
@@ -247,7 +245,6 @@ void Route::computeExcessRideTime(bool debug) {
             timeFeasible = false;
             if (debug)
                 std::cout << "Ride time at request " << req->origin->id << ": " << ride_time << "\n";
-            return;
         }
         excess_ride_time += ride_time - inst.getTravelTime(req->origin, req->destination);
     }

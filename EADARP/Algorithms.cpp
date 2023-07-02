@@ -46,12 +46,15 @@ namespace algorithms {
 		temperature = -temperature_control * run.best.objectiveValue() / log(0.5);
 		cooling_rate = pow(0.01 / temperature, 1.0 / (max_iterations));
 		Solution s;
+		std::vector<EAV*> allVehicles = inst.vehicles;
 		for (unsigned int iter = 1; iter <= max_iterations; ++iter) {
 			int removalIndex = RouletteWheelSelection(stats[0], weightSum[0], randlib);
 			int insertionIndex = RouletteWheelSelection(stats[1], weightSum[1], randlib);
 			s = incumbent;
+			//Removal step. Includes removing redundant charging stations
 			stats[0][removalIndex].heuristic(s, removalArguments);
 			stats[0][removalIndex].attempts++;
+			
 
 			for (EAV* v : inst.vehicles) {
 				Route route = s.routes[v];
@@ -60,8 +63,33 @@ namespace algorithms {
 					s.addRoute(route);
 				}
 			}
+
+			//Insertion step
 			stats[1][insertionIndex].heuristic(s, insertionArguments);
 			stats[1][insertionIndex].attempts++;
+
+			//Select returning depots
+			std::unordered_set<Node*> visitedDepots;
+			std::shuffle(allVehicles.begin(), allVehicles.end(), rd);
+			for (EAV* v :allVehicles) {
+				Node* nodeBeforeEnd = *(s.routes[v].path.end() - 2);
+				for (Node* depot : inst.closestDestinationDepot[nodeBeforeEnd]) {
+					if (!visitedDepots.contains(depot)) {
+						Route route = s.routes[v];
+						route.travel_distance -= inst.getTravelTime(nodeBeforeEnd, route.path.back());
+						route.node_indices.erase(route.path.back());
+						route.path.back() = depot;
+						route.travel_distance += inst.getTravelTime(nodeBeforeEnd,depot);
+						route.node_indices.emplace(depot, route.path.size() - 1);
+						route.updateMetrics();
+						if (route.isFeasible()) {
+							s.addRoute(route);
+							visitedDepots.insert(depot);
+							break;
+						}
+					}
+				}
+			}
 
 			if (dbl_round(s.objectiveValue(), 2) < dbl_round(incumbent.objectiveValue(), 2)) {
 				if (dbl_round(s.objectiveValue(), 2) < dbl_round(run.best.objectiveValue(), 2)) {
@@ -69,7 +97,7 @@ namespace algorithms {
 					stats[0][removalIndex].score += 10;
 					stats[1][insertionIndex].score += 10;
 					run.best_iter = iter;
-					//printf("New best Found:%f, Rejected: %d\n", s.objectiveValue(), s.rejected.size());
+					printf("New best Found:%f, Rejected: %d\n", s.objectiveValue(), s.rejected.size());
 				}
 				else {
 					incumbent = std::move(s);
