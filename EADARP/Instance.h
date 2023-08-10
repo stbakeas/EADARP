@@ -46,7 +46,6 @@ public:
     std::vector<std::vector<double>> similarity;
     std::vector<std::vector<Request*>> similarRequestsSorted;
     std::vector<std::vector<int>> forbiddenArcs;
-    std::unordered_map<Node*, std::vector<Node*>> closestDestinationDepot;
     std::array<double, 3> bestKnownSolutionCost;
     int numberOfOriginDepots, numberOfDestinationDepots,maximumCapacity=0;
     unsigned int maxVisitsPerStation;
@@ -70,6 +69,12 @@ public:
 
     //Get the start depot associated with a vehicle
     Node* getDepot(EAV* vehicle,bool startingDepot);
+    std::unordered_map<int, std::vector<int>>&
+        closestDestinationDepot()
+    {
+        static std::unordered_map<int, std::vector<int>> problems_map;
+        return problems_map;
+    }
 
     /**
      * Get the request associated with a node.

@@ -10,6 +10,7 @@
 #include <chrono>
 #include <unordered_set>
 #include <ctime>
+#include <stack>
 
 namespace algorithms {
 
@@ -33,6 +34,8 @@ namespace algorithms {
 	Run ALNS(const Solution& initial,std::array<std::vector<Statistics>, 2> stats, unsigned int max_iterations, double temperature_control, double removalRandomness, double removalPercentage, int segment_size, double reaction_factor)
 	{
 		double temperature, cooling_rate(1.0);
+		int n = inst.requests.size();
+		int firstEndDepotIndex = 2 * n + inst.numberOfOriginDepots + 2;
 		std::array<double, 2> weightSum;
 		for (auto& rOperator : stats[0]) weightSum[0] += rOperator.weight;
 		for (auto& iOperator : stats[1]) weightSum[1] += iOperator.weight;
@@ -46,7 +49,7 @@ namespace algorithms {
 		temperature = -temperature_control * run.best.objectiveValue() / log(0.5);
 		cooling_rate = pow(0.01 / temperature, 1.0 / (max_iterations));
 		Solution s;
-		std::vector<EAV*> allVehicles = inst.vehicles;
+		std::vector<EAV*> vehicles = inst.vehicles;
 		for (unsigned int iter = 1; iter <= max_iterations; ++iter) {
 			int removalIndex = RouletteWheelSelection(stats[0], weightSum[0], randlib);
 			int insertionIndex = RouletteWheelSelection(stats[1], weightSum[1], randlib);
@@ -54,13 +57,13 @@ namespace algorithms {
 			//Removal step. Includes removing redundant charging stations
 			stats[0][removalIndex].heuristic(s, removalArguments);
 			stats[0][removalIndex].attempts++;
-			
+
 
 			for (EAV* v : inst.vehicles) {
 				Route route = s.routes[v];
 				if (route.deleteRedundantChargingStations()) {
 					route.updateMetrics();
-					s.addRoute(route);
+					if (route.isFeasible()) s.addRoute(route);
 				}
 			}
 
@@ -68,28 +71,14 @@ namespace algorithms {
 			stats[1][insertionIndex].heuristic(s, insertionArguments);
 			stats[1][insertionIndex].attempts++;
 
-			//Select returning depots
-			std::unordered_set<Node*> visitedDepots;
-			std::shuffle(allVehicles.begin(), allVehicles.end(), rd);
-			for (EAV* v :allVehicles) {
-				Node* nodeBeforeEnd = *(s.routes[v].path.end() - 2);
-				for (Node* depot : inst.closestDestinationDepot[nodeBeforeEnd]) {
-					if (!visitedDepots.contains(depot)) {
-						Route route = s.routes[v];
-						route.travel_distance -= inst.getTravelTime(nodeBeforeEnd, route.path.back());
-						route.node_indices.erase(route.path.back());
-						route.path.back() = depot;
-						route.travel_distance += inst.getTravelTime(nodeBeforeEnd,depot);
-						route.node_indices.emplace(depot, route.path.size() - 1);
-						route.updateMetrics();
-						if (route.isFeasible()) {
-							s.addRoute(route);
-							visitedDepots.insert(depot);
-							break;
-						}
-					}
-				}
-			}
+			/*std::stack<EAV*> vehiclesInRandomOrder;
+			std::shuffle(vehicles.begin(), vehicles.end(), rd);
+			for (EAV* v : vehicles) vehiclesInRandomOrder.push(v);
+			std::unordered_set<int> availableDepots;
+			for (auto it = inst.nodes.begin() + firstEndDepotIndex;
+				it != inst.nodes.begin() + firstEndDepotIndex + inst.numberOfDestinationDepots; ++it)
+				availableDepots.insert((*it)->id);
+			Backtracking(s,availableDepots, vehiclesInRandomOrder,s.objectiveValue());*/
 
 			if (dbl_round(s.objectiveValue(), 2) < dbl_round(incumbent.objectiveValue(), 2)) {
 				if (dbl_round(s.objectiveValue(), 2) < dbl_round(run.best.objectiveValue(), 2)) {
@@ -97,7 +86,7 @@ namespace algorithms {
 					stats[0][removalIndex].score += 10;
 					stats[1][insertionIndex].score += 10;
 					run.best_iter = iter;
-					printf("New best Found:%f, Rejected: %d\n", s.objectiveValue(), s.rejected.size());
+					//printf("New best Found:%f, Rejected: %d\n", s.objectiveValue(), s.rejected.size());
 				}
 				else {
 					incumbent = std::move(s);
@@ -913,6 +902,36 @@ namespace algorithms {
 				}
 				if (insertionFailed) s.rejected.push_back(removedRequest);
 			}
+		}
+
+		bool Backtracking(Solution& s, std::unordered_set<int>& availableDepots, std::stack<EAV*>& vehiclesInRandomOrder, double threshold) {
+			if (vehiclesInRandomOrder.empty())  return true;
+			EAV* v = vehiclesInRandomOrder.top();
+			Node* nodeBeforeEnd = *(s.routes[v].path.end() - 2);
+			for (int depotIndex :inst.closestDestinationDepot()[nodeBeforeEnd->id]) {
+				if (availableDepots.contains(depotIndex)) {
+					Route route = s.routes[v];
+					Route old_route = route;
+					route.travel_distance -= inst.getTravelTime(nodeBeforeEnd, route.path.back());
+					route.node_indices.erase(route.path.back());
+					route.path.back() = inst.nodes[depotIndex - 1];
+					route.travel_distance += inst.getTravelTime(nodeBeforeEnd, inst.nodes[depotIndex - 1]);
+					route.node_indices.emplace(inst.nodes[depotIndex - 1], route.path.size() - 1);
+					route.updateMetrics();
+					if (route.isFeasible()) {
+						s.addRoute(route);
+						availableDepots.erase(depotIndex);
+						vehiclesInRandomOrder.pop();
+						if (Backtracking(s, availableDepots, vehiclesInRandomOrder, threshold) &&
+							dbl_round(s.objectiveValue() - threshold, 3) < 0.0) return true;
+						s.addRoute(old_route);
+						availableDepots.insert(depotIndex);
+						vehiclesInRandomOrder.push(v);
+					}
+					else break;
+				}
+			}
+			return false;
 		}
 
 	}

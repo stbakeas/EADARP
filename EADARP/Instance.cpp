@@ -30,8 +30,10 @@ Instance::~Instance()
         delete req;
 
     for (CStation* station : charging_stations) 
-       delete station;
-    
+       delete station;   
+
+    closestDestinationDepot().clear();
+
 }
 
 void Instance::RandomGenerator(int request_num, int vehicles_num, int stations_num, double max_latitude,
@@ -667,31 +669,31 @@ void Instance::Preprocessing() {
     int firstEndDepotIndex = 2 * n + numberOfOriginDepots + 2;
     /*For each request destination, charging station and origin depot respectively,
     store their closest ending depots*/
-    std::vector<Node*> destinationDepots;
-    std::copy(nodes.begin() + firstEndDepotIndex, nodes.begin() + firstEndDepotIndex + numberOfDestinationDepots,
-        std::back_inserter(destinationDepots));
+    /*std::vector<int> destinationDepots;
+    for (auto it = nodes.begin() + firstEndDepotIndex; it != nodes.begin() + firstEndDepotIndex + numberOfDestinationDepots; ++it)
+        destinationDepots.push_back((*it)->id);
     for (int i = 0; i < n; i++) {
-        std::sort(destinationDepots.begin(), destinationDepots.end(), [&](Node* n1, Node* n2) {
-            return inst.getTravelTime(nodes[i + n],n1) < inst.getTravelTime(nodes[i + n],n2);
+        std::sort(destinationDepots.begin(), destinationDepots.end(), [&](int n1, int n2) {
+            return inst.getTravelTime(nodes[i + n],nodes[n1-1]) < inst.getTravelTime(nodes[i + n],nodes[n2-1]);
         });
-        closestDestinationDepot[nodes[i + n]] = destinationDepots;
+        closestDestinationDepot()[i + n] = destinationDepots;
     }
 
     int firstCSIndex = 2 * n + numberOfOriginDepots + numberOfDestinationDepots + 2;
     for (int i = firstCSIndex; i < firstCSIndex + inst.charging_stations.size(); i++) {
-        std::sort(destinationDepots.begin(), destinationDepots.end(), [&](Node* n1, Node* n2) {
-            return inst.getTravelTime(nodes[i], n1) < inst.getTravelTime(nodes[i], n2);
+        std::sort(destinationDepots.begin(), destinationDepots.end(), [&](int n1, int n2) {
+            return inst.getTravelTime(nodes[i], nodes[n1-1]) < inst.getTravelTime(nodes[i], nodes[n2-1]);
             });
-        closestDestinationDepot[nodes[i]] = destinationDepots;
+        closestDestinationDepot()[i]=destinationDepots;
     }
 
     int firstStartDepotIndex = 2 * n + 2;
     for (int i = firstStartDepotIndex; i < firstStartDepotIndex + numberOfOriginDepots; i++) {
-        std::sort(destinationDepots.begin(), destinationDepots.end(), [&](Node* n1, Node* n2) {
-            return inst.getTravelTime(nodes[i], n1) < inst.getTravelTime(nodes[i], n2);
+        std::sort(destinationDepots.begin(), destinationDepots.end(), [&](int n1, int n2) {
+            return inst.getTravelTime(nodes[i], nodes[n1-1]) < inst.getTravelTime(nodes[i], nodes[n2-1]);
             });
-        closestDestinationDepot[nodes[i]] = destinationDepots;
-    }
+        closestDestinationDepot()[i]=destinationDepots;
+    }*/
 
    
     for (int i = 0; i < n; i++) {

@@ -1,0 +1,50 @@
+Reaction Factor = 0
+
+Update Frequency = 50
+70/70	0.519751		109.846
+Update Frequency = 100
+70/70	0.500513		106.658
+Update Frequency = 200
+70/70	0.482315		107.388
+Update Frequency = 500
+70/70	0.484576		109.439
+Reaction Factor = 0.25
+
+Update Frequency = 50
+70/70	0.485806		110.742
+Update Frequency = 100
+70/70	0.497055		110.199
+Update Frequency = 200
+70/70	0.497882		110.52
+Update Frequency = 500
+70/70	0.468343		111.8
+Reaction Factor = 0.5
+
+Update Frequency = 50
+70/70	0.497759		110.141
+Update Frequency = 100
+70/70	0.495842		112.199
+Update Frequency = 200
+70/70	0.484918		110.775
+Update Frequency = 500
+70/70	0.480194		112.175
+Reaction Factor = 0.75
+
+Update Frequency = 50
+70/70	0.50464		111.599
+Update Frequency = 100
+70/70	0.521258		112.588
+Update Frequency = 200
+70/70	0.504032		111.327
+Update Frequency = 500
+70/70	0.480057		110.405
+Reaction Factor = 1
+
+Update Frequency = 50
+70/70	0.536019		111.065
+Update Frequency = 100
+70/70	0.499703		111.267
+Update Frequency = 200
+70/70	0.489757		110.677
+Update Frequency = 500
+70/70	0.501454		111.683

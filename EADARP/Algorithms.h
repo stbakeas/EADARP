@@ -4,6 +4,7 @@
 #include <iostream>
 #include "Solution.h"
 #include "Instance.h"
+#include <stack>
 
 namespace algorithms
 {
@@ -32,7 +33,9 @@ namespace algorithms
 
 		std::vector<Position> InsertionNeighborhood(const Request* r, Solution& s,const std::vector<EAV*>& available_vehicles, bool includeCS = false);
 
-        /**
+		bool Backtracking(Solution& s, std::unordered_set<int>& availableDepots, std::stack<EAV*>& vehiclesInRandomOrder,double threshold);
+       
+		/**
          * Randomly selects a request and inserts it at its best position.
          */
 		Solution Init1();

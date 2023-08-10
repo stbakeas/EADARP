@@ -1,0 +1,72 @@
+Removal Randomness = 2
+
+Removal Percentage = 0.1
+70/70	0.627679		51.7273
+Removal Percentage = 0.15
+70/70	0.569907		74.6497
+Removal Percentage = 0.2
+70/70	0.501164		93.0036
+Removal Percentage = 0.25
+70/70	0.494299		111.785
+Removal Percentage = 0.3
+70/70	0.485947		143.404
+Removal Randomness = 3
+
+Removal Percentage = 0.1
+70/70	0.593023		51.108
+Removal Percentage = 0.15
+70/70	0.579157		73.8333
+Removal Percentage = 0.2
+70/70	0.522743		92.7756
+Removal Percentage = 0.25
+70/70	0.503751		114.68
+Removal Percentage = 0.3
+70/70	0.477225		142.909
+Removal Randomness = 4
+
+Removal Percentage = 0.1
+70/70	0.675778		50.173
+Removal Percentage = 0.15
+70/70	0.556621		73.5937
+Removal Percentage = 0.2
+70/70	0.529664		97.0833
+Removal Percentage = 0.25
+70/70	0.509029		110.487
+Removal Percentage = 0.3
+70/70	0.480563		139.341
+Removal Randomness = 5
+
+Removal Percentage = 0.1
+70/70	0.723421		50.5476
+Removal Percentage = 0.15
+70/70	0.597279		71.515
+Removal Percentage = 0.2
+70/70	0.563203		91.0004
+Removal Percentage = 0.25
+70/70	0.529705		110.183
+Removal Percentage = 0.3
+70/70	0.474409		138.226
+Removal Randomness = 6
+
+Removal Percentage = 0.1
+70/70	0.617712		50.3597
+Removal Percentage = 0.15
+70/70	0.600743		72.5459
+Removal Percentage = 0.2
+70/70	0.5324		90.1703
+Removal Percentage = 0.25
+70/70	0.539291		107.924
+Removal Percentage = 0.3
+70/70	0.497853		137.388
+Removal Randomness = 7
+
+Removal Percentage = 0.1
+70/70	0.604775		50.0277
+Removal Percentage = 0.15
+70/70	0.564491		71.3326
+Removal Percentage = 0.2
+70/70	0.553304		91.4207
+Removal Percentage = 0.25
+70/70	0.519173		109.228
+Removal Percentage = 0.3
+70/70	0.490062		140.593
